@@ -10,7 +10,7 @@
           <span class="font-bold text-lg text-slate-800 tracking-tight">Forum</span>
         </router-link>
         <nav class="hidden md:flex gap-4">
-          <router-link to="/explore" class="text-slate-600 hover:text-blue-600 font-medium transition-colors">探索空间</router-link>
+          <router-link to="/explore/spaces" class="text-slate-600 hover:text-blue-600 font-medium transition-colors">探索空间</router-link>
         </nav>
       </div>
 

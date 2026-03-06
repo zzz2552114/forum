@@ -26,6 +26,18 @@ const routes: Array<RouteRecordRaw> = [
         name: 'Register',
         component: () => import('@/views/public/RegisterView.vue'),
         meta: { title: '注册' }
+      },
+      {
+        path: 'explore/spaces',
+        name: 'ExploreSpaces',
+        component: () => import('@/views/public/ExploreSpacesView.vue'),
+        meta: { title: '探索空间' }
+      },
+      {
+        path: 'spaces/:spaceId',
+        name: 'SpaceDetail',
+        component: () => import('@/views/public/SpaceView.vue'),
+        meta: { title: '空间主页' }
       }
     ]
   },
@@ -65,8 +77,13 @@ router.beforeEach(async (to, from, next) => {
     document.title = `${to.meta.title} - Forum`
   }
 
+  // Ensure initial user state is loaded if token exists, useful for deep links on refresh
+  if (authStore.isAuthenticated && !authStore.user) {
+    await authStore.fetchMe()
+  }
+
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ path: '/login', query: { redirect: to.fullPath } })
+    return { path: '/login', query: { redirect: to.fullPath } }
   } else {
     next()
   }
