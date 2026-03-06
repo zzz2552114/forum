@@ -6,7 +6,7 @@
         <p class="text-slate-500 text-sm mt-2">Welcome back to the forum</p>
       </div>
 
-      <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleLogin" label-position="top">
+      <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @keyup.enter="handleLogin">
         <el-form-item label="Username" prop="username">
           <el-input v-model="form.username" size="large" placeholder="Enter your username" />
         </el-form-item>
@@ -16,7 +16,7 @@
         </el-form-item>
 
         <div class="mt-6">
-          <el-button type="primary" size="large" class="w-full fw-bold bg-blue-600 hover:bg-blue-700 border-none" @click="handleLogin" :loading="loading">
+          <el-button type="primary" native-type="button" size="large" class="w-full fw-bold bg-blue-600 hover:bg-blue-700 border-none" @click="handleLogin" :loading="loading">
             Sign In
           </el-button>
         </div>
@@ -53,20 +53,21 @@ const rules = {
 
 const handleLogin = async () => {
   if (!formRef.value) return
-  await formRef.value.validate(async (valid: boolean) => {
-    if (valid) {
-      loading.value = true
-      try {
-        await authStore.login(form.value)
-        ElMessage.success('Login successful')
-        const redirect = route.query.redirect as string || '/app/feed'
-        router.push(redirect)
-      } catch (error) {
-        // Handled by axios interceptor
-      } finally {
-        loading.value = false
-      }
-    }
-  })
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // 校验不通过
+  }
+  loading.value = true
+  try {
+    await authStore.login(form.value)
+    ElMessage.success('登录成功')
+    const redirect = route.query.redirect as string || '/app/feed'
+    await router.push(redirect)
+  } catch {
+    // error 已由 axios interceptor 显示
+  } finally {
+    loading.value = false
+  }
 }
 </script>

@@ -37,7 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
   const fetchMe = async () => {
     if (!token.value) return
     try {
-      user.value = await request.get('/me')
+      user.value = await request.get('/me/')
     } catch (e) {
       logout()
     }

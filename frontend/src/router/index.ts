@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
 import PublicLayout from '@/layouts/PublicLayout.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -91,26 +92,25 @@ const router = createRouter({
   routes
 })
 
-// Route Guards
-router.beforeEach(async (to, from, next) => {
+// Route Guards — use return-only style (Vue Router 4)
+router.beforeEach(async (to) => {
   NProgress.start()
-  
+
   const authStore = useAuthStore()
-  
+
   if (to.meta.title) {
     document.title = `${to.meta.title} - Forum`
   }
 
-  // Ensure initial user state is loaded if token exists, useful for deep links on refresh
+  // Ensure initial user state is loaded if token exists
   if (authStore.isAuthenticated && !authStore.user) {
     await authStore.fetchMe()
   }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return { path: '/login', query: { redirect: to.fullPath } }
-  } else {
-    next()
   }
+  // return undefined = allow navigation
 })
 
 router.afterEach(() => {

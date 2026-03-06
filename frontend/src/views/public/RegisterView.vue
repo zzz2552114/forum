@@ -6,7 +6,7 @@
         <p class="text-slate-500 text-sm mt-2">Join our academic community</p>
       </div>
 
-      <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleRegister" label-position="top">
+      <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @keyup.enter="handleRegister">
         <el-form-item label="Username" prop="username">
           <el-input v-model="form.username" size="large" placeholder="Choose a username" />
         </el-form-item>
@@ -20,7 +20,7 @@
         </el-form-item>
 
         <div class="mt-6">
-          <el-button type="primary" size="large" class="w-full fw-bold bg-blue-600 hover:bg-blue-700 border-none" @click="handleRegister" :loading="loading">
+          <el-button type="primary" native-type="button" size="large" class="w-full fw-bold bg-blue-600 hover:bg-blue-700 border-none" @click="handleRegister" :loading="loading">
             Create Account
           </el-button>
         </div>
@@ -61,19 +61,21 @@ const rules = {
 
 const handleRegister = async () => {
   if (!formRef.value) return
-  await formRef.value.validate(async (valid: boolean) => {
-    if (valid) {
-      loading.value = true
-      try {
-        await authStore.register(form.value)
-        ElMessage.success('Registration successful. You can log in now.')
-        router.push('/login')
-      } catch (error) {
-        // Interceptor handles error messages
-      } finally {
-        loading.value = false
-      }
-    }
-  })
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // 校验不通过
+  }
+  loading.value = true
+  try {
+    await authStore.register(form.value)
+    ElMessage.success('注册成功，请登录')
+    await router.push('/login')
+  } catch {
+    // error 已由 axios interceptor 显示
+  } finally {
+    loading.value = false
+  }
 }
 </script>
+

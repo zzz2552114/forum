@@ -166,7 +166,7 @@ const fetchPost = async () => {
 const fetchComments = async () => {
   loadingComments.value = true
   try {
-    const res: any = await request.get(`/posts/${postId.value}/comments`, {
+    const res: any = await request.get(`/comments/post/${postId.value}`, {
       params: { page: commentPage.value, page_size: commentPageSize.value }
     })
     comments.value = res.items
@@ -180,7 +180,7 @@ const fetchComments = async () => {
 
 const submitComment = async () => {
   try {
-    await request.post(`/posts/${postId.value}/comments`, {
+    await request.post('/comments/', {
       content: newComment.value,
       post_id: parseInt(postId.value as string)
     })
