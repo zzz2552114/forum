@@ -44,6 +44,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'PostDetail',
         component: () => import('@/views/public/PostDetailView.vue'),
         meta: { title: '帖子详情' }
+      },
+      {
+        path: 'search',
+        name: 'Search',
+        component: () => import('@/views/public/SearchView.vue'),
+        meta: { title: '搜索' }
       }
     ]
   },
@@ -69,6 +75,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'MeOverview',
         component: () => import('@/views/app/MeOverviewView.vue'),
         meta: { title: '我的主页' }
+      },
+      {
+        path: '/notifications',
+        name: 'Notifications',
+        component: () => import('@/views/app/NotificationsView.vue'),
+        meta: { title: '消息中心' }
       }
     ]
   }
