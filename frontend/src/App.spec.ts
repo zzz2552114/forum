@@ -7,14 +7,14 @@ import ElementPlus from 'element-plus'
 
 describe('App.vue', () => {
   it('renders correctly', async () => {
-    router.push('/')
-    await router.isReady()
-    
     const wrapper = mount(App, {
       global: {
-        plugins: [router, pinia, ElementPlus]
+        plugins: [pinia, router, ElementPlus]
       }
     })
+    
+    router.push('/')
+    await router.isReady()
     
     expect(wrapper.exists()).toBe(true)
     expect(wrapper.html()).toContain('Welcome to Forum')
