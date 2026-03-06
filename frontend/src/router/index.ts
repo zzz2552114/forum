@@ -59,6 +59,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: '发现' }
       },
       {
+        path: '/posts/new',
+        name: 'PostEditor',
+        component: () => import('@/views/app/PostEditorView.vue'),
+        meta: { title: '发布帖子' }
+      },
+      {
         path: '/me/overview',
         name: 'MeOverview',
         component: () => import('@/views/app/MeOverviewView.vue'),
