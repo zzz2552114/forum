@@ -22,7 +22,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     except JWTError:
         raise credentials_exception
         
-    user = await User.get_or_none(id=int(token_data.sub))
+    try:
+        user_id_int = int(token_data.sub)
+    except (ValueError, TypeError):
+        raise credentials_exception
+        
+    user = await User.get_or_none(id=user_id_int)
     if user is None:
         raise credentials_exception
     return user

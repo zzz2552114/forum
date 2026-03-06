@@ -58,7 +58,15 @@ async def test_posts_and_comments_flow():
         read_post_response2 = client.get(f"/api/v1/posts/{post_id}")
         assert read_post_response2.json()["like_count"] == 1
         
-        # 6. Create Comment
+        # 6. Create Post 2 for cross-posting tests
+        post2_response = client.post("/api/v1/posts/", json={
+            "title": f"Test Title 2 {unique_suffix}",
+            "content": "Another post.",
+            "space_id": space_id
+        }, headers=headers)
+        post2_id = post2_response.json()["id"]
+
+        # 7. Create Comment on Post 1
         comment_response = client.post("/api/v1/comments/", json={
             "content": "Great post!",
             "post_id": post_id
@@ -66,8 +74,22 @@ async def test_posts_and_comments_flow():
         assert comment_response.status_code == 200
         comment_data = comment_response.json()
         assert comment_data["content"] == "Great post!"
+        comment_id = comment_data["id"]
         
-        # 7. Read Comments for Post
+        # 8. Try to create child comment on Post 2 but parent belongs to Post 1
+        bad_comment_response = client.post("/api/v1/comments/", json={
+            "content": "I agree!",
+            "post_id": post2_id,
+            "parent_id": comment_id
+        }, headers=headers)
+        assert bad_comment_response.status_code == 400
+        assert "does not belong" in bad_comment_response.json()["detail"]
+        
+        # 9. Test duplicate like returns 400
+        duplicate_like_response = client.post(f"/api/v1/posts/{post_id}/like", headers=headers)
+        assert duplicate_like_response.status_code == 400
+        
+        # 10. Read Comments for Post
         comments_list_response = client.get(f"/api/v1/comments/post/{post_id}")
         assert comments_list_response.status_code == 200
         assert len(comments_list_response.json()) > 0

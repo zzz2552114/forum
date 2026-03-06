@@ -37,6 +37,8 @@ async def create_comment(comment_in: CommentCreate, current_user: User = Depends
         parent = await Comment.get_or_none(id=comment_in.parent_id)
         if not parent:
             raise HTTPException(status_code=404, detail="Parent comment not found")
+        if parent.post_id != post.id:
+            raise HTTPException(status_code=400, detail="Parent comment does not belong to this post")
             
     comment = await Comment.create(
         content=comment_in.content,

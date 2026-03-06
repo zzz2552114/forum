@@ -62,8 +62,11 @@ async def read_post(post_id: int):
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
         
-    post.view_count += 1
-    await post.save(update_fields=["view_count"])
+    from tortoise.expressions import F
+    await Post.filter(id=post.id).update(view_count=F("view_count") + 1)
+    
+    # Reload the post from DB since we updated it directly via queryset
+    post = await Post.get(id=post_id).prefetch_related("author", "space")
     
     return PostResponse(
         id=post.id,
@@ -87,7 +90,7 @@ async def like_post(post_id: int, current_user: User = Depends(get_current_activ
     if not created:
         raise HTTPException(status_code=400, detail="You have already liked this post")
         
-    post.like_count += 1
-    await post.save(update_fields=["like_count"])
+    from tortoise.expressions import F
+    await Post.filter(id=post.id).update(like_count=F("like_count") + 1)
     
     return {"message": "Post liked successfully"}
