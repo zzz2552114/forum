@@ -1,7 +1,7 @@
 from tortoise import fields, models
 
 class Post(models.Model):
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     title = fields.CharField(max_length=255)
     content = fields.TextField()
     
@@ -19,7 +19,7 @@ class Post(models.Model):
 
 
 class Comment(models.Model):
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     content = fields.TextField()
     
     post = fields.ForeignKeyField("models.Post", related_name="comments")
@@ -36,7 +36,7 @@ class Comment(models.Model):
 
 class PostLike(models.Model):
     """ Table to track user likes so users can't like multiple times. """
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     user = fields.ForeignKeyField("models.User", related_name="post_likes")
     post = fields.ForeignKeyField("models.Post", related_name="liked_by")
     

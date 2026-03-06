@@ -2,7 +2,7 @@ from tortoise import fields, models
 
 class Resource(models.Model):
     """ To handle attached files, documents, or course materials """
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     filename = fields.CharField(max_length=255)
     file_url = fields.CharField(max_length=512)
     file_type = fields.CharField(max_length=50, null=True)

@@ -1,7 +1,7 @@
 from tortoise import fields, models
 
 class Category(models.Model):
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=100, unique=True) # e.g., 'Schools', 'Courses', 'Hobbies'
     description = fields.TextField(null=True)
     
@@ -12,7 +12,7 @@ class Category(models.Model):
 
 
 class Space(models.Model):
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=100) # e.g., 'Peking University', 'Calculus'
     description = fields.TextField(null=True)
     
