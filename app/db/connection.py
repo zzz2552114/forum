@@ -4,21 +4,27 @@ from app.core.config import settings
 from urllib.parse import urlparse
 
 def init_db(app: FastAPI) -> None:
-    # Use asyncmy driver explicitly
+    # Use asyncmy driver by leaving it as mysql://
     db_url = settings.MYSQL_URL
-    if db_url.startswith("mysql://"):
-        db_url = db_url.replace("mysql://", "asyncmy://", 1)
 
     register_tortoise(
         app,
-        db_url=db_url,
-        modules={"models": [
-            "app.models.user",
-            "app.models.category",
-            "app.models.forum",
-            "app.models.resource",
-            "app.models.report"
-        ]},
+        config={
+            "connections": {"default": db_url},
+            "apps": {
+                "models": {
+                    "models": [
+                        "app.models.user",
+                        "app.models.category",
+                        "app.models.forum",
+                        "app.models.resource",
+                        "app.models.report"
+                    ],
+                    "default_connection": "default",
+                }
+            },
+            "use_tz": False,
+        },
         generate_schemas=True,
         add_exception_handlers=True,
     )
