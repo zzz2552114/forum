@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from app.schemas.forum import CommentCreate, CommentResponse
+from app.schemas.common import ResponseBase, PaginationData
+from app.core.responses import success_response, paginate_response
 from app.models.forum import Comment, Post
 from app.api.deps import get_current_active_user
 from app.models.user import User
@@ -9,13 +11,16 @@ router = APIRouter()
 
 from app.models.enums import ContentStatus
 
-@router.get("/post/{post_id}", response_model=List[CommentResponse])
-async def read_comments_for_post(post_id: int, skip: int = 0, limit: int = 50):
+@router.get("/post/{post_id}", response_model=ResponseBase[PaginationData[CommentResponse]])
+async def read_comments_for_post(post_id: int, page: int = 1, page_size: int = 50):
     post = await Post.get_or_none(id=post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
         
-    comments = await Comment.filter(post_id=post_id, status=ContentStatus.PUBLISHED).offset(skip).limit(limit).prefetch_related("author", "parent")
+    query = Comment.filter(post_id=post_id, status=ContentStatus.PUBLISHED)
+    total = await query.count()
+    skip = (page - 1) * page_size
+    comments = await query.offset(skip).limit(page_size).prefetch_related("author", "parent")
     
     response_comments = []
     for c in comments:
@@ -27,9 +32,9 @@ async def read_comments_for_post(post_id: int, skip: int = 0, limit: int = 50):
             author_id=c.author.id,
             created_at=c.created_at
         ))
-    return response_comments
+    return paginate_response(response_comments, page, page_size, total)
 
-@router.post("/", response_model=CommentResponse)
+@router.post("/", response_model=ResponseBase[CommentResponse])
 async def create_comment(comment_in: CommentCreate, current_user: User = Depends(get_current_active_user)):
     post = await Post.get_or_none(id=comment_in.post_id)
     if not post:
@@ -49,11 +54,11 @@ async def create_comment(comment_in: CommentCreate, current_user: User = Depends
         author_id=current_user.id
     )
     
-    return CommentResponse(
+    return success_response(CommentResponse(
         id=comment.id,
         content=comment.content,
         post_id=comment.post_id,
         parent_id=comment.parent_id,
         author_id=comment.author_id,
         created_at=comment.created_at
-    )
+    ))

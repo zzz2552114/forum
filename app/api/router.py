@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.endpoints import auth, categories, spaces, posts, comments, me, users, post_actions, search
+from app.api.endpoints import auth, categories, spaces, posts, comments, me, users, post_actions, search, tags, files, resources
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -11,3 +11,6 @@ api_router.include_router(posts.router, prefix="/posts", tags=["posts"])
 api_router.include_router(post_actions.router, prefix="/posts", tags=["post actions"])
 api_router.include_router(comments.router, prefix="/comments", tags=["comments"])
 api_router.include_router(search.router, prefix="/search", tags=["search"])
+api_router.include_router(tags.router, prefix="/tags", tags=["tags"])
+api_router.include_router(files.router, prefix="/files", tags=["files"])
+api_router.include_router(resources.router, prefix="/resources", tags=["resources"])

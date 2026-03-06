@@ -31,7 +31,7 @@ async def test_categories_and_spaces_flow():
             "description": "A category for testing spaces"
         }, headers=headers)
         assert cat_response.status_code == 200
-        category_id = cat_response.json()["id"]
+        category_id = cat_response.json()["data"]["id"]
 
         # 4. Create Space
         space_response = client.post("/api/v1/spaces/", json={
@@ -40,11 +40,11 @@ async def test_categories_and_spaces_flow():
             "category_id": category_id
         }, headers=headers)
         assert space_response.status_code == 200
-        space_data = space_response.json()
+        space_data = space_response.json()["data"]
         assert space_data["name"] == f"Test Space {unique_suffix}"
         assert space_data["category_id"] == category_id
         
         # 5. Read Spaces
         spaces_response = client.get(f"/api/v1/spaces/?category_id={category_id}")
         assert spaces_response.status_code == 200
-        assert len(spaces_response.json()) > 0
+        assert len(spaces_response.json()["data"]) > 0

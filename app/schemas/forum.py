@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
+from app.schemas.tag import TagResponse
 
 # --- Post Schemas ---
 class PostBase(BaseModel):
@@ -9,7 +10,7 @@ class PostBase(BaseModel):
     space_id: int
 
 class PostCreate(PostBase):
-    pass
+    tag_ids: list[int] = []
 
 class PostResponse(PostBase):
     id: int
@@ -18,6 +19,7 @@ class PostResponse(PostBase):
     like_count: int
     created_at: datetime
     updated_at: datetime
+    tags: list[TagResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
 

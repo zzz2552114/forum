@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
 from app.schemas.forum import PostCreate, PostResponse
+from app.schemas.common import ResponseBase, PaginationData
+from app.core.responses import success_response, paginate_response
 from app.models.forum import Post, PostLike
 from app.models.category import Space
 from app.api.deps import get_current_active_user, get_current_user
@@ -10,12 +12,15 @@ router = APIRouter()
 
 from app.models.enums import ContentStatus
 
-@router.get("/", response_model=List[PostResponse])
-async def read_posts(space_id: Optional[int] = None, skip: int = 0, limit: int = 20):
+@router.get("/", response_model=ResponseBase[PaginationData[PostResponse]])
+async def read_posts(space_id: Optional[int] = None, page: int = 1, page_size: int = 20):
     query = Post.filter(status=ContentStatus.PUBLISHED)
     if space_id:
         query = query.filter(space_id=space_id)
-    posts = await query.offset(skip).limit(limit).prefetch_related("author", "space")
+        
+    total = await query.count()
+    skip = (page - 1) * page_size
+    posts = await query.offset(skip).limit(page_size).prefetch_related("author", "space", "tags")
     
     # Map tortoise relational objects to id integers for the response model
     response_posts = []
@@ -29,11 +34,12 @@ async def read_posts(space_id: Optional[int] = None, skip: int = 0, limit: int =
             view_count=p.view_count,
             like_count=p.like_count,
             created_at=p.created_at,
-            updated_at=p.updated_at
+            updated_at=p.updated_at,
+            tags=list(p.tags) if hasattr(p, "tags") else []
         ))
-    return response_posts
+    return paginate_response(response_posts, page, page_size, total)
 
-@router.post("/", response_model=PostResponse)
+@router.post("/", response_model=ResponseBase[PostResponse])
 async def create_post(post_in: PostCreate, current_user: User = Depends(get_current_active_user)):
     space = await Space.get_or_none(id=post_in.space_id)
     if not space:
@@ -46,7 +52,16 @@ async def create_post(post_in: PostCreate, current_user: User = Depends(get_curr
         author_id=current_user.id
     )
     
-    return PostResponse(
+    if post_in.tag_ids:
+        from app.models.tag import Tag
+        tags = await Tag.filter(id__in=post_in.tag_ids)
+        if tags:
+            await post.tags.add(*tags)
+            
+    # Refetch correctly formatted
+    await post.fetch_related("author", "space", "tags")
+    
+    return success_response(PostResponse(
         id=post.id,
         title=post.title,
         content=post.content,
@@ -55,12 +70,13 @@ async def create_post(post_in: PostCreate, current_user: User = Depends(get_curr
         view_count=post.view_count,
         like_count=post.like_count,
         created_at=post.created_at,
-        updated_at=post.updated_at
-    )
+        updated_at=post.updated_at,
+        tags=list(post.tags) if hasattr(post, "tags") else []
+    ))
 
-@router.get("/{post_id}", response_model=PostResponse)
+@router.get("/{post_id}", response_model=ResponseBase[PostResponse])
 async def read_post(post_id: int):
-    post = await Post.get_or_none(id=post_id).prefetch_related("author", "space")
+    post = await Post.get_or_none(id=post_id).prefetch_related("author", "space", "tags")
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
         
@@ -68,9 +84,9 @@ async def read_post(post_id: int):
     await Post.filter(id=post.id).update(view_count=F("view_count") + 1)
     
     # Reload the post from DB since we updated it directly via queryset
-    post = await Post.get(id=post_id).prefetch_related("author", "space")
+    post = await Post.get(id=post_id).prefetch_related("author", "space", "tags")
     
-    return PostResponse(
+    return success_response(PostResponse(
         id=post.id,
         title=post.title,
         content=post.content,
@@ -79,8 +95,9 @@ async def read_post(post_id: int):
         view_count=post.view_count,
         like_count=post.like_count,
         created_at=post.created_at,
-        updated_at=post.updated_at
-    )
+        updated_at=post.updated_at,
+        tags=list(post.tags) if hasattr(post, "tags") else []
+    ))
 
 @router.post("/{post_id}/like")
 async def like_post(post_id: int, current_user: User = Depends(get_current_active_user)):
@@ -95,4 +112,4 @@ async def like_post(post_id: int, current_user: User = Depends(get_current_activ
     from tortoise.expressions import F
     await Post.filter(id=post.id).update(like_count=F("like_count") + 1)
     
-    return {"message": "Post liked successfully"}
+    return success_response({"message": "Post liked successfully"})

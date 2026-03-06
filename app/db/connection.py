@@ -18,7 +18,11 @@ def init_db(app: FastAPI) -> None:
                         "app.models.category",
                         "app.models.forum",
                         "app.models.resource",
-                        "app.models.report"
+                        "app.models.report",
+                        "app.models.interactions",
+                        "app.models.tag",
+                        "app.models.file",
+                        "app.models.notification"
                     ],
                     "default_connection": "default",
                 }

@@ -40,7 +40,7 @@ def test_register_and_login():
             "password": "wrongpassword"
         })
         assert wrong_login_response.status_code == 401
-        assert wrong_login_response.json()["detail"] == "Incorrect username or password"
+        assert wrong_login_response.json()["message"] == "Incorrect username or password"
 
 @pytest.mark.asyncio
 async def test_invalid_token_handling():

@@ -11,6 +11,7 @@ class Post(models.Model):
     
     author = fields.ForeignKeyField("models.User", related_name="posts")
     space = fields.ForeignKeyField("models.Space", related_name="posts")
+    tags = fields.ManyToManyField("models.Tag", related_name="posts")
     
     is_pinned = fields.BooleanField(default=False)
     is_featured = fields.BooleanField(default=False)

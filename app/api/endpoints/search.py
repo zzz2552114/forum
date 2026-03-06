@@ -7,10 +7,11 @@ from app.models.category import Space
 from app.models.resource import Resource
 from app.models.enums import ContentStatus
 from app.schemas.search import (
-    PaginatedResponse, PaginationMeta,
     PostSearchItem, SpaceSearchItem, ResourceSearchItem,
     AuthorBrief, SearchSuggestions,
 )
+from app.schemas.common import ResponseBase, PaginationData
+from app.core.responses import paginate_response, success_response
 
 router = APIRouter()
 
@@ -24,7 +25,7 @@ def _clamp_page_size(page_size: int) -> int:
 # ──────────────────────────────
 # 17.1  搜索帖子
 # ──────────────────────────────
-@router.get("/posts")
+@router.get("/posts", response_model=ResponseBase[PaginationData[PostSearchItem]])
 async def search_posts(
     keyword: str = Query(..., min_length=1, description="搜索关键词"),
     space_id: Optional[int] = None,
@@ -35,9 +36,10 @@ async def search_posts(
     page_size = _clamp_page_size(page_size)
     offset = (page - 1) * page_size
 
-    query = Post.filter(status=ContentStatus.PUBLISHED).filter(
-        Q(title__icontains=keyword) | Q(content__icontains=keyword)
-    )
+    query = Post.filter(status=ContentStatus.PUBLISHED)
+    keywords = [k for k in keyword.split() if k]
+    for k in keywords:
+        query = query.filter(Q(title__icontains=k) | Q(content__icontains=k))
     if space_id is not None:
         query = query.filter(space_id=space_id)
     if post_type is not None:
@@ -78,21 +80,13 @@ async def search_posts(
             )
         )
 
-    return PaginatedResponse(
-        items=items,
-        pagination=PaginationMeta(
-            page=page,
-            page_size=page_size,
-            total=total,
-            has_next=(offset + page_size) < total,
-        ),
-    )
+    return paginate_response(items, page, page_size, total)
 
 
 # ──────────────────────────────
 # 17.2  搜索空间
 # ──────────────────────────────
-@router.get("/spaces")
+@router.get("/spaces", response_model=ResponseBase[PaginationData[SpaceSearchItem]])
 async def search_spaces(
     keyword: str = Query(..., min_length=1),
     category_id: Optional[int] = None,
@@ -103,9 +97,10 @@ async def search_spaces(
     page_size = _clamp_page_size(page_size)
     offset = (page - 1) * page_size
 
-    query = Space.filter(status=ContentStatus.PUBLISHED).filter(
-        Q(name__icontains=keyword) | Q(description__icontains=keyword)
-    )
+    query = Space.filter(status=ContentStatus.PUBLISHED)
+    keywords = [k for k in keyword.split() if k]
+    for k in keywords:
+        query = query.filter(Q(name__icontains=k) | Q(description__icontains=k))
     if category_id is not None:
         query = query.filter(category_id=category_id)
     if type is not None:
@@ -130,21 +125,13 @@ async def search_spaces(
         for s in spaces
     ]
 
-    return PaginatedResponse(
-        items=items,
-        pagination=PaginationMeta(
-            page=page,
-            page_size=page_size,
-            total=total,
-            has_next=(offset + page_size) < total,
-        ),
-    )
+    return paginate_response(items, page, page_size, total)
 
 
 # ──────────────────────────────
 # 17.3  搜索资料
 # ──────────────────────────────
-@router.get("/resources")
+@router.get("/resources", response_model=ResponseBase[PaginationData[ResourceSearchItem]])
 async def search_resources(
     keyword: str = Query(..., min_length=1),
     space_id: Optional[int] = None,
@@ -155,11 +142,14 @@ async def search_resources(
     page_size = _clamp_page_size(page_size)
     offset = (page - 1) * page_size
 
-    query = Resource.filter(status=ContentStatus.PUBLISHED).filter(
-        Q(title__icontains=keyword)
-        | Q(description__icontains=keyword)
-        | Q(filename__icontains=keyword)
-    )
+    query = Resource.filter(status=ContentStatus.PUBLISHED)
+    keywords = [k for k in keyword.split() if k]
+    for k in keywords:
+        query = query.filter(
+            Q(title__icontains=k)
+            | Q(description__icontains=k)
+            | Q(filename__icontains=k)
+        )
     if space_id is not None:
         query = query.filter(space_id=space_id)
     if resource_type is not None:
@@ -190,15 +180,7 @@ async def search_resources(
             )
         )
 
-    return PaginatedResponse(
-        items=items,
-        pagination=PaginationMeta(
-            page=page,
-            page_size=page_size,
-            total=total,
-            has_next=(offset + page_size) < total,
-        ),
-    )
+    return paginate_response(items, page, page_size, total)
 
 
 # ──────────────────────────────
@@ -207,36 +189,29 @@ async def search_resources(
 SUGGESTION_LIMIT = 5
 
 
-@router.get("/suggestions", response_model=SearchSuggestions)
+@router.get("/suggestions", response_model=ResponseBase[SearchSuggestions])
 async def search_suggestions(
     keyword: str = Query(..., min_length=1),
 ):
-    # Spaces
-    space_qs = await (
-        Space.filter(status=ContentStatus.PUBLISHED, name__icontains=keyword)
-        .limit(SUGGESTION_LIMIT)
-        .values_list("name", flat=True)
-    )
+    keywords = [k for k in keyword.split() if k]
+    
+    sq = Space.filter(status=ContentStatus.PUBLISHED)
+    for k in keywords: sq = sq.filter(name__icontains=k)
+    space_qs = await sq.limit(SUGGESTION_LIMIT).values_list("name", flat=True)
 
-    # Posts
-    post_qs = await (
-        Post.filter(status=ContentStatus.PUBLISHED, title__icontains=keyword)
-        .limit(SUGGESTION_LIMIT)
-        .values_list("title", flat=True)
-    )
+    pq = Post.filter(status=ContentStatus.PUBLISHED)
+    for k in keywords: pq = pq.filter(title__icontains=k)
+    post_qs = await pq.limit(SUGGESTION_LIMIT).values_list("title", flat=True)
 
-    # Resources
-    resource_qs = await (
-        Resource.filter(status=ContentStatus.PUBLISHED)
-        .filter(Q(title__icontains=keyword) | Q(filename__icontains=keyword))
-        .limit(SUGGESTION_LIMIT)
-        .values_list("title", flat=True)
-    )
+    rq = Resource.filter(status=ContentStatus.PUBLISHED)
+    for k in keywords: rq = rq.filter(Q(title__icontains=k) | Q(filename__icontains=k))
+    resource_qs = await rq.limit(SUGGESTION_LIMIT).values_list("title", flat=True)
+
     # Filter out None entries from resources
     resource_names = [r for r in resource_qs if r]
 
-    return SearchSuggestions(
+    return success_response(SearchSuggestions(
         spaces=list(space_qs),
         posts=list(post_qs),
         resources=resource_names,
-    )
+    ))

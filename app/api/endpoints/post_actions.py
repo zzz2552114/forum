@@ -3,6 +3,7 @@ from typing import Any
 
 from app.models.user import User
 from app.models.forum import Post
+from app.core.responses import success_response
 from app.models.enums import UserRole
 from app.models.interactions import PostBookmark, PostSubscription
 from app.api.deps import get_current_active_user
@@ -24,7 +25,7 @@ async def bookmark_post(
         from tortoise.expressions import F
         await Post.filter(id=post.id).update(bookmark_count=F("bookmark_count") + 1)
         
-    return {"bookmarked": True, "created": created}
+    return success_response({"bookmarked": True, "created": created})
 
 @router.delete("/{post_id}/bookmarks/me")
 async def remove_bookmark(
@@ -35,7 +36,7 @@ async def remove_bookmark(
     if deleted > 0:
         from tortoise.expressions import F
         await Post.filter(id=post_id).update(bookmark_count=F("bookmark_count") - 1)
-    return {"message": "Bookmark removed"}
+    return success_response({"message": "Bookmark removed"})
 
 @router.put("/{post_id}/subscriptions/me")
 async def subscribe_post(
@@ -47,7 +48,7 @@ async def subscribe_post(
         raise HTTPException(status_code=404, detail="Post not found")
         
     obj, created = await PostSubscription.get_or_create(user_id=current_user.id, post_id=post_id)
-    return {"subscribed": True, "created": created}
+    return success_response({"subscribed": True, "created": created})
 
 @router.delete("/{post_id}/subscriptions/me")
 async def unsubscribe_post(
@@ -55,7 +56,7 @@ async def unsubscribe_post(
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
     await PostSubscription.filter(user_id=current_user.id, post_id=post_id).delete()
-    return {"message": "Subscription removed"}
+    return success_response({"message": "Subscription removed"})
 
 # --- Mod Actions ---
 def _verify_mod(user: User):
@@ -72,7 +73,7 @@ async def pin_post(
     if not post: raise HTTPException(status_code=404, detail="Post not found")
     post.is_pinned = True
     await post.save()
-    return {"message": "Post pinned"}
+    return success_response({"message": "Post pinned"})
 
 @router.delete("/{post_id}/pin")
 async def unpin_post(
@@ -84,7 +85,7 @@ async def unpin_post(
     if not post: raise HTTPException(status_code=404, detail="Post not found")
     post.is_pinned = False
     await post.save()
-    return {"message": "Post unpinned"}
+    return success_response({"message": "Post unpinned"})
 
 @router.put("/{post_id}/lock")
 async def lock_post(
@@ -96,7 +97,7 @@ async def lock_post(
     if not post: raise HTTPException(status_code=404, detail="Post not found")
     post.is_locked = True
     await post.save()
-    return {"message": "Post locked"}
+    return success_response({"message": "Post locked"})
 
 @router.delete("/{post_id}/lock")
 async def unlock_post(
@@ -108,4 +109,4 @@ async def unlock_post(
     if not post: raise HTTPException(status_code=404, detail="Post not found")
     post.is_locked = False
     await post.save()
-    return {"message": "Post unlocked"}
+    return success_response({"message": "Post unlocked"})

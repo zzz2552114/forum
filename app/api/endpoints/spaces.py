@@ -4,16 +4,18 @@ from app.schemas.category import SpaceCreate, SpaceResponse
 from app.models.category import Space, Category
 from app.api.deps import get_current_active_user
 from app.models.user import User
+from app.schemas.common import ResponseBase
+from app.core.responses import success_response
 
 router = APIRouter()
 
-@router.get("/", response_model=List[SpaceResponse])
+@router.get("/", response_model=ResponseBase[List[SpaceResponse]])
 async def read_spaces(category_id: int | None = None):
     if category_id:
-        return await Space.filter(category_id=category_id).all()
-    return await Space.all()
+        return success_response(await Space.filter(category_id=category_id).all())
+    return success_response(await Space.all())
 
-@router.post("/", response_model=SpaceResponse)
+@router.post("/", response_model=ResponseBase[SpaceResponse])
 async def create_space(space_in: SpaceCreate, current_user: User = Depends(get_current_active_user)):
     category = await Category.get_or_none(id=space_in.category_id)
     if not category:
@@ -27,23 +29,23 @@ async def create_space(space_in: SpaceCreate, current_user: User = Depends(get_c
         **space_in.model_dump(),
         owner=current_user
     )
-    return space
+    return success_response(space)
 
-@router.get("/{space_id}", response_model=SpaceResponse)
+@router.get("/{space_id}", response_model=ResponseBase[SpaceResponse])
 async def read_space_by_id(space_id: int):
     space = await Space.get_or_none(id=space_id)
     if not space:
         raise HTTPException(status_code=404, detail="Space not found")
     # Workaround for asyncmy/tortoise returning owner object or None properly instead of id directly
     await space.fetch_related("owner")
-    return SpaceResponse(
+    return success_response(SpaceResponse(
         id=space.id,
         name=space.name,
         description=space.description,
         category_id=space.category_id,
         owner_id=space.owner.id if space.owner else None,
         created_at=space.created_at
-    )
+    ))
 
 # --- Space Subscriptions ---
 from app.models.interactions import SpaceSubscription
@@ -61,7 +63,7 @@ async def subscribe_space(
     if created:
         from tortoise.expressions import F
         await Space.filter(id=space.id).update(subscriber_count=F("subscriber_count") + 1)
-    return {"subscribed": True, "created": created}
+    return success_response({"subscribed": True, "created": created})
 
 @router.delete("/{space_id}/subscriptions/me")
 async def unsubscribe_space(
@@ -72,4 +74,4 @@ async def unsubscribe_space(
     if deleted > 0:
         from tortoise.expressions import F
         await Space.filter(id=space_id).update(subscriber_count=F("subscriber_count") - 1)
-    return {"message": "Subscription removed"}
+    return success_response({"message": "Subscription removed"})

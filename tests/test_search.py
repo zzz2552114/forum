@@ -29,13 +29,13 @@ def test_search_full_flow():
             "name": f"Search Cat {UNIQUE}",
             "description": "For search tests"
         }, headers=headers)
-        cat_id = cat.json()["id"]
+        cat_id = cat.json()["data"]["id"]
 
         space = client.post("/api/v1/spaces/", json={
             "name": f"高等数学_{UNIQUE}",
             "category_id": cat_id
         }, headers=headers)
-        space_id = space.json()["id"]
+        space_id = space.json()["data"]["id"]
 
         # 2. Create posts with distinguishable titles
         client.post("/api/v1/posts/", json={
@@ -54,7 +54,7 @@ def test_search_full_flow():
         # Search by keyword that matches first post only
         r = client.get(f"/api/v1/search/posts?keyword=高数")
         assert r.status_code == 200
-        body = r.json()
+        body = r.json()["data"]
         assert "items" in body
         assert "pagination" in body
         assert body["pagination"]["total"] >= 1
@@ -64,28 +64,28 @@ def test_search_full_flow():
         # Search with space_id filter
         r2 = client.get(f"/api/v1/search/posts?keyword=高数&space_id={space_id}")
         assert r2.status_code == 200
-        assert r2.json()["pagination"]["total"] >= 1
+        assert r2.json()["data"]["pagination"]["total"] >= 1
 
         # Search with keyword that won't match anything
         r3 = client.get("/api/v1/search/posts?keyword=zzzznotfound999")
         assert r3.status_code == 200
-        assert r3.json()["pagination"]["total"] == 0
+        assert r3.json()["data"]["pagination"]["total"] == 0
 
         # --- 17.2  搜索空间 ---
         r4 = client.get(f"/api/v1/search/spaces?keyword=高等数学")
         assert r4.status_code == 200
-        assert r4.json()["pagination"]["total"] >= 1
-        assert any("高等数学" in s["name"] for s in r4.json()["items"])
+        assert r4.json()["data"]["pagination"]["total"] >= 1
+        assert any("高等数学" in s["name"] for s in r4.json()["data"]["items"])
 
         # --- 17.3  搜索资料 (empty but should work) ---
         r5 = client.get("/api/v1/search/resources?keyword=不存在的资料")
         assert r5.status_code == 200
-        assert r5.json()["pagination"]["total"] == 0
+        assert r5.json()["data"]["pagination"]["total"] == 0
 
         # --- 17.4  搜索联想 ---
         r6 = client.get(f"/api/v1/search/suggestions?keyword=高")
         assert r6.status_code == 200
-        sugg = r6.json()
+        sugg = r6.json()["data"]
         assert "spaces" in sugg
         assert "posts" in sugg
         assert "resources" in sugg
@@ -95,6 +95,6 @@ def test_search_full_flow():
         # --- Pagination sanity check ---
         r7 = client.get(f"/api/v1/search/posts?keyword=高数&page=1&page_size=1")
         assert r7.status_code == 200
-        pg = r7.json()["pagination"]
+        pg = r7.json()["data"]["pagination"]
         assert pg["page"] == 1
         assert pg["page_size"] == 1

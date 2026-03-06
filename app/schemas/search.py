@@ -1,19 +1,6 @@
-from typing import Optional, List, Generic, TypeVar
+from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
-
-T = TypeVar("T")
-
-# --- Pagination ---
-class PaginationMeta(BaseModel):
-    page: int
-    page_size: int
-    total: int
-    has_next: bool
-
-class PaginatedResponse(BaseModel, Generic[T]):
-    items: List[T]
-    pagination: PaginationMeta
 
 # --- Search Result Items ---
 class AuthorBrief(BaseModel):

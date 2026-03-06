@@ -8,8 +8,7 @@ class Resource(models.Model):
     title = fields.CharField(max_length=255, null=True)
     description = fields.TextField(null=True)
     
-    filename = fields.CharField(max_length=255)
-    file_url = fields.CharField(max_length=512)
+    filename = fields.CharField(max_length=255, null=True) # Cached from latest version
     resource_type = fields.CharField(max_length=50, null=True)
     status = fields.CharEnumField(ContentStatus, default=ContentStatus.PUBLISHED)
     
@@ -24,3 +23,13 @@ class Resource(models.Model):
 
     class Meta:
         table = "resources"
+
+class ResourceVersion(models.Model):
+    id = fields.IntField(primary_key=True)
+    resource = fields.ForeignKeyField("models.Resource", related_name="versions")
+    file = fields.ForeignKeyField("models.File", related_name="resource_versions")
+    version_note = fields.CharField(max_length=255, null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "resource_versions"
