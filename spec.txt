@@ -1,0 +1,1099 @@
+统一响应格式
+成功响应
+{
+  "code": 0,
+  "message": "ok",
+  "data": {}
+}
+分页响应
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "items": [],
+    "pagination": {
+      "page": 1,
+      "page_size": 20,
+      "total": 100,
+      "has_next": true
+    }
+  }
+}
+错误响应
+{
+  "code": 40001,
+  "message": "invalid request",
+  "data": null
+}
+3) 鉴权约定
+
+受保护接口统一使用：
+
+Authorization: Bearer <jwt_token>
+
+FastAPI 依赖统一走：
+
+get_current_user
+
+get_current_active_user
+
+require_role(...)
+
+require_space_master(...)
+
+4) 分页约定
+
+统一使用：
+page: 默认 1
+page_size: 默认 20，最大 100
+不再继续用 skip/limit 作为新接口标准。
+你已有接口可以兼容旧参数，但新接口规格一律用 page/page_size。
+
+5) 软删除约定
+建议所有核心内容对象支持：
+status
+deleted_at（可选）
+不要真的直接物理删除帖子/评论/资源。
+二、建议的 router 文件清单
+建议后端目录这样拆：
+app/
+  routers/
+    system.py
+    auth.py
+    me.py
+    users.py
+    categories.py
+    spaces.py
+    space_members.py
+    posts.py
+    comments.py
+    post_actions.py
+    resources.py
+    files.py
+    reports.py
+    moderation.py
+    notifications.py
+    tags.py
+    search.py
+    admin_roles.py
+    admin_users.py
+    polls.py
+如果你想先控制复杂度，可以先不做：
+space_members.py
+polls.py
+三、公共枚举与字段规范
+这部分非常关键。
+你最好先把这些枚举固定下来，再让 AI 写代码，不然不同模块会自己发明字段。
+1) UserRole
+super_root
+admin
+master
+user
+2) TrustLevel
+
+3) SpaceType
+course
+school
+interest
+4) PostType
+discussion
+question
+resource
+guide
+experience
+notice
+poll
+5) ContentStatus
+draft
+published
+pending_review
+hidden
+locked
+deleted
+6) ResourceType
+past_exam
+notes
+handout
+ppt
+assignment
+solution
+other
+7) ReportTargetType
+post
+comment
+resource
+space
+user
+8) ReportStatus
+pending
+reviewing
+resolved
+rejected
+closed
+9) ModerationActionType
+hide
+unhide
+delete
+lock
+unlock
+feature
+unfeature
+pin
+unpin
+warn
+mute
+ban
+unban
+approve
+reject
+10) SchoolVisibility
+public
+members_only
+hidden
+规则建议：
+trust_level < 2 时，不能设置为 hidden
+管理员永远能看到原始值
+
+一些程序约束：
+me.py
+3.1 获取我的个人资料
+GET /api/v1/me
+权限：登录
+响应：
+{
+  "id": 1,
+  "username": "alice",
+  "email": "alice@example.com",
+  "nickname": "阿狸",
+  "avatar_url": "https://...",
+  "bio": "数学分析爱好者",
+  "school_name": "北京大学",
+  "school_visibility": "members_only",
+  "role": "user",
+  "trust_level": 2,
+  "reputation_score": 156,
+  "created_at": "2026-03-06T12:00:00Z"
+}
+3.2 更新我的资料
+PATCH /api/v1/me/profile
+权限：登录
+请求体：
+{
+  "nickname": "阿狸",
+  "avatar_url": "https://...",
+  "bio": "数学分析爱好者",
+  "school_name": "北京大学"
+}
+响应：返回更新后的 profile
+
+3.3 更新隐私设置
+PATCH /api/v1/me/privacy
+权限：登录
+请求体：
+
+{
+  "school_visibility": "members_only",
+  "allow_anonymous_post": true
+}
+
+后端规则：
+trust_level < 2 时，school_visibility 不能为 hidden
+响应：返回最新隐私设置
+3.4 我的统计
+GET /api/v1/me/stats
+响应：
+{
+  "post_count": 12,
+  "comment_count": 88,
+  "resource_count": 5,
+  "bookmark_count": 19,
+  "follower_space_count": 7,
+  "liked_received_count": 230
+}
+3.5 我的通知
+GET /api/v1/me/notifications?page=1&page_size=20
+权限：登录
+响应项字段：
+{
+  "id": 1,
+  "type": "comment_reply",
+  "title": "你的帖子有新回复",
+  "content": "用户 bob 回复了你的帖子",
+  "is_read": false,
+  "target_type": "post",
+  "target_id": 1001,
+  "created_at": "2026-03-06T12:00:00Z"
+}
+4. users.py
+4.1 获取用户公开主页
+GET /api/v1/users/{user_id}
+权限：可公开访问
+响应：
+
+{
+  "id": 1,
+  "username": "alice",
+  "nickname": "阿狸",
+  "avatar_url": "https://...",
+  "bio": "数学分析爱好者",
+  "school_name": "北京大学",
+  "school_visibility": "public",
+  "trust_level": 2,
+  "reputation_score": 156,
+  "created_at": "2026-03-06T12:00:00Z"
+}
+说明：
+若 school_visibility = hidden，普通用户看不到学校
+管理员/本人可见
+
+4.2 获取用户帖子
+GET /api/v1/users/{user_id}/posts?page=1&page_size=20
+响应项建议复用 PostSummary
+4.3 获取用户评论
+GET /api/v1/users/{user_id}/comments?page=1&page_size=20
+4.4 获取用户资料
+GET /api/v1/users/{user_id}/resources?page=1&page_size=20
+5. categories.py
+5.1 分类列表
+GET /api/v1/categories
+响应项：
+{
+  "id": 1,
+  "name": "课程讨论",
+  "slug": "courses",
+  "description": "课程相关内容"
+}
+5.2 创建分类
+POST /api/v1/categories
+权限：admin 以上
+请求体：
+{
+  "name": "课程讨论",
+  "slug": "courses",
+  "description": "课程相关内容"
+}
+5.3 分类详情
+GET /api/v1/categories/{category_id}
+6. spaces.py
+6.1 空间列表
+GET /api/v1/spaces
+查询参数：
+category_id
+type
+keyword
+page
+page_size
+响应项：
+
+{
+  "id": 1,
+  "name": "高等数学",
+  "slug": "advanced-math",
+  "type": "course",
+  "category_id": 1,
+  "description": "高等数学课程讨论区",
+  "owner_id": 1,
+  "post_count": 123,
+  "resource_count": 45,
+  "subscriber_count": 2000,
+  "status": "published",
+  "created_at": "2026-03-06T12:00:00Z"
+}
+6.2 创建空间
+POST /api/v1/spaces
+登录
+trust_level >= 2
+或管理员直建
+请求体：
+{
+  "name": "高等数学",
+  "slug": "advanced-math",
+  "type": "course",
+  "category_id": 1,
+  "description": "高等数学课程讨论区"
+}
+响应：返回空间详情
+6.3 空间详情
+GET /api/v1/spaces/{space_id}
+6.4 更新空间
+PATCH /api/v1/spaces/{space_id}
+请求体：
+{
+  "name": "高等数学A",
+  "description": "新版描述",
+  "status": "published"
+}
+6.5 删除/冻结空间
+DELETE /api/v1/spaces/{space_id}
+权限：admin / super_root
+6.6 关注空间
+PUT /api/v1/spaces/{space_id}/subscriptions/me
+权限：登录
+响应：
+{
+  "subscribed": true
+}
+6.7 取消关注空间
+DELETE /api/v1/spaces/{space_id}/subscriptions/me
+6.8 空间规则
+GET /api/v1/spaces/{space_id}/rules
+响应：
+{
+  "space_id": 1,
+  "rules_markdown": "1. 禁止人身攻击\n2. 禁止上传侵权资料"
+}
+6.9 更新空间规则
+PUT /api/v1/spaces/{space_id}/rules
+权限：master / admin
+请求体：
+{
+  "rules_markdown": "1. 禁止人身攻击\n2. 禁止上传侵权资料"
+}
+7. space_members.py
+
+这个模块不是必须，但很适合后面扩展版主关系。
+
+7.1 空间版主列表
+GET /api/v1/spaces/{space_id}/masters
+响应项：
+
+{
+  "user_id": 1,
+  "username": "alice",
+  "nickname": "阿狸",
+  "assigned_at": "2026-03-06T12:00:00Z"
+}
+7.2 添加空间版主
+PUT /api/v1/spaces/{space_id}/masters/{user_id}
+权限：admin / super_root
+7.3 移除空间版主
+DELETE /api/v1/spaces/{space_id}/masters/{user_id}
+8. posts.py
+8.1 帖子列表
+GET /api/v1/posts
+查询参数：
+space_id
+author_id
+post_type
+status
+tag_id
+keyword
+sort (latest / hot / most_viewed)
+page
+page_size
+响应项建议：
+{
+  "id": 1001,
+  "title": "高数期末怎么复习？",
+  "summary": "想问一下...",
+  "post_type": "question",
+  "space_id": 1,
+  "space_name": "高等数学",
+  "author": {
+    "id": 1,
+    "username": "alice",
+    "nickname": "阿狸"
+  },
+  "status": "published",
+  "is_pinned": false,
+  "is_featured": false,
+  "is_locked": false,
+  "view_count": 120,
+  "like_count": 12,
+  "comment_count": 8,
+  "bookmark_count": 3,
+  "created_at": "2026-03-06T12:00:00Z"
+}
+8.2 发帖
+POST /api/v1/posts
+权限：登录
+trust_level >= 1 或按你自己的规则
+请求体：
+{
+  "title": "高数期末怎么复习？",
+  "content_markdown": "正文内容",
+  "post_type": "question",
+  "space_id": 1,
+  "tag_ids": [1, 2],
+  "is_anonymous": false
+}
+规则：
+is_anonymous = true 时，需要 trust_level >= 2
+某些空间可禁止匿名发帖
+响应：返回帖子详情
+8.3 帖子详情
+GET /api/v1/posts/{post_id}
+行为：
+view_count + 1
+返回作者、标签、状态等信息
+响应增加字段：
+{
+  "id": 1001,
+  "title": "高数期末怎么复习？",
+  "content_markdown": "正文",
+  "post_type": "question",
+  "space": {
+    "id": 1,
+    "name": "高等数学"
+  },
+  "author": {
+    "id": 1,
+    "username": "alice",
+    "nickname": "阿狸"
+  },
+  "status": "published",
+  "is_pinned": false,
+  "is_featured": false,
+  "is_locked": false,
+  "is_solved": false,
+  "solution_comment_id": null,
+  "view_count": 121,
+  "like_count": 12,
+  "comment_count": 8,
+  "bookmark_count": 3,
+  "tags": [
+    {"id": 1, "name": "期末"},
+    {"id": 2, "name": "复习"}
+  ],
+  "created_at": "2026-03-06T12:00:00Z",
+  "updated_at": "2026-03-06T12:00:00Z"
+}
+8.4 编辑帖子
+PATCH /api/v1/posts/{post_id}
+权限：
+作者本人
+或 master/admin
+请求体：
+{
+  "title": "新标题",
+  "content_markdown": "新正文",
+  "tag_ids": [1, 3]
+}
+8.5 删除帖子
+DELETE /api/v1/posts/{post_id}
+权限：作者本人
+master
+admin
+建议语义：
+作者删除 => status=deleted
+版主隐藏 => status=hidden
+8.6 标记最佳答案
+PUT /api/v1/posts/{post_id}/solution/comments/{comment_id}
+权限：帖子作者
+master
+响应：
+{
+  "post_id": 1001,
+  "is_solved": true,
+  "solution_comment_id": 9001
+}
+8.7 取消最佳答案
+DELETE /api/v1/posts/{post_id}/solution
+9. post_actions.py
+这个 router 专门放互动动作，避免 posts.py 太肥。
+9.1 点赞帖子
+PUT /api/v1/posts/{post_id}/likes/me
+权限：登录
+响应：
+{
+  "liked": true,
+  "like_count": 13
+}
+9.2 取消点赞帖子
+DELETE /api/v1/posts/{post_id}/likes/me
+9.3 收藏帖子
+PUT /api/v1/posts/{post_id}/bookmarks/me
+9.4 取消收藏帖子
+DELETE /api/v1/posts/{post_id}/bookmarks/me
+9.5 订阅帖子
+PUT /api/v1/posts/{post_id}/subscriptions/me
+
+用途：
+
+回复提醒
+
+更新提醒
+
+9.6 取消订阅帖子
+DELETE /api/v1/posts/{post_id}/subscriptions/me
+9.7 置顶帖子
+PUT /api/v1/posts/{post_id}/pin
+
+权限：master / admin
+
+9.8 取消置顶
+DELETE /api/v1/posts/{post_id}/pin
+9.9 加精帖子
+PUT /api/v1/posts/{post_id}/feature
+
+权限：master / admin
+
+9.10 取消加精
+DELETE /api/v1/posts/{post_id}/feature
+9.11 锁帖
+PUT /api/v1/posts/{post_id}/lock
+
+权限：master / admin
+
+9.12 解锁
+DELETE /api/v1/posts/{post_id}/lock
+10. comments.py
+10.1 评论列表
+GET /api/v1/posts/{post_id}/comments?page=1&page_size=20
+
+响应项：
+
+{
+  "id": 9001,
+  "post_id": 1001,
+  "parent_id": null,
+  "content": "建议先看往年题",
+  "author": {
+    "id": 2,
+    "username": "bob",
+    "nickname": "小明"
+  },
+  "like_count": 5,
+  "reply_count": 2,
+  "status": "published",
+  "created_at": "2026-03-06T12:00:00Z"
+}
+10.2 发表评论
+POST /api/v1/posts/{post_id}/comments
+
+请求体：
+
+{
+  "content": "建议先看往年题",
+  "parent_id": null
+}
+
+说明：
+parent_id 为空表示一级评论
+不为空表示回复某条评论
+
+10.3 编辑评论
+PATCH /api/v1/comments/{comment_id}
+
+请求体：
+
+{
+  "content": "修改后的评论"
+}
+10.4 删除评论
+DELETE /api/v1/comments/{comment_id}
+
+权限：
+
+评论作者
+
+master 
+
+admin
+
+10.5 点赞评论
+PUT /api/v1/comments/{comment_id}/likes/me
+10.6 取消点赞评论
+DELETE /api/v1/comments/{comment_id}/likes/me
+11. tags.py
+11.1 标签列表
+GET /api/v1/tags?keyword=期末&page=1&page_size=20
+11.2 创建标签
+POST /api/v1/tags
+
+权限：master  / admin
+
+请求体：
+
+{
+  "name": "期末",
+  "slug": "final-exam"
+}
+11.3 更新标签
+PATCH /api/v1/tags/{tag_id}
+11.4 删除标签
+DELETE /api/v1/tags/{tag_id}
+12. files.py
+
+这个模块只做“文件对象”，不做资料业务。
+
+12.1 上传文件
+POST /api/v1/files
+
+权限：
+
+登录
+
+trust_level >= 2 或你指定规则
+
+请求：
+
+multipart/form-data
+
+字段：
+
+file
+
+biz_type，如 resource, avatar, attachment
+
+响应：
+
+{
+  "id": 5001,
+  "filename": "2025高数期末.pdf",
+  "content_type": "application/pdf",
+  "size": 123456,
+  "url": "https://...",
+  "created_at": "2026-03-06T12:00:00Z"
+}
+12.2 文件详情
+GET /api/v1/files/{file_id}
+12.3 删除文件
+DELETE /api/v1/files/{file_id}
+
+权限：
+
+上传者
+
+admin
+
+13. resources.py
+
+资料模块是你的特色模块，建议做得比普通附件更完整一点。
+
+13.1 资料列表
+GET /api/v1/resources
+
+查询参数：
+
+space_id
+
+resource_type
+
+author_id
+
+keyword
+
+status
+
+page
+
+page_size
+
+响应项：
+
+{
+  "id": 3001,
+  "title": "2025 高数期末真题",
+  "resource_type": "past_exam",
+  "space_id": 1,
+  "space_name": "高等数学",
+  "description": "含答案",
+  "author": {
+    "id": 1,
+    "username": "alice"
+  },
+  "version_count": 2,
+  "download_count": 120,
+  "bookmark_count": 20,
+  "status": "published",
+  "created_at": "2026-03-06T12:00:00Z"
+}
+13.2 创建资料条目
+POST /api/v1/resources
+
+请求体：
+
+{
+  "title": "2025 高数期末真题",
+  "resource_type": "past_exam",
+  "space_id": 1,
+  "description": "含答案",
+  "tag_ids": [1, 2]
+}
+
+响应：返回资料详情
+
+13.3 资料详情
+GET /api/v1/resources/{resource_id}
+
+响应：
+
+{
+  "id": 3001,
+  "title": "2025 高数期末真题",
+  "resource_type": "past_exam",
+  "space": {
+    "id": 1,
+    "name": "高等数学"
+  },
+  "description": "含答案",
+  "author": {
+    "id": 1,
+    "username": "alice"
+  },
+  "status": "published",
+  "download_count": 120,
+  "bookmark_count": 20,
+  "versions": [
+    {
+      "id": 1,
+      "file_id": 5001,
+      "file_url": "https://...",
+      "version_note": "初版",
+      "created_at": "2026-03-06T12:00:00Z"
+    }
+  ],
+  "created_at": "2026-03-06T12:00:00Z"
+}
+13.4 更新资料
+PATCH /api/v1/resources/{resource_id}
+13.5 删除资料
+DELETE /api/v1/resources/{resource_id}
+
+权限：
+
+作者
+
+master 
+
+admin
+
+13.6 新增资料版本
+POST /api/v1/resources/{resource_id}/versions
+
+请求体：
+
+{
+  "file_id": 5001,
+  "version_note": "修复了缺页问题"
+}
+13.7 下载资料
+POST /api/v1/resources/{resource_id}/downloads
+
+说明：
+
+用于记录下载行为
+
+返回下载地址或临时链接
+
+响应：
+
+{
+  "download_url": "https://...",
+  "download_count": 121
+}
+13.8 收藏资料
+PUT /api/v1/resources/{resource_id}/bookmarks/me
+13.9 取消收藏资料
+DELETE /api/v1/resources/{resource_id}/bookmarks/me
+13.10 资料质量反馈
+POST /api/v1/resources/{resource_id}/feedback
+
+请求体：
+
+{
+  "feedback_type": "useful",
+  "content": "资料很完整"
+}
+
+feedback_type 建议枚举：
+
+useful
+
+outdated
+
+incorrect
+
+incomplete
+
+13.11 资料反馈汇总
+GET /api/v1/resources/{resource_id}/feedback-summary
+
+响应：
+
+{
+  "useful": 12,
+  "outdated": 1,
+  "incorrect": 0,
+  "incomplete": 2
+}
+14. reports.py
+14.1 创建举报
+POST /api/v1/reports
+
+请求体：
+
+{
+  "target_type": "post",
+  "target_id": 1001,
+  "reason_code": "spam",
+  "detail": "疑似广告"
+}
+
+reason_code 建议：
+
+spam
+
+abuse
+
+copyright
+
+illegal
+
+misleading
+master 
+other
+
+响应：
+
+{
+  "id": 7001,
+  "status": "pending",
+  "created_at": "2026-03-06T12:00:00Z"
+}
+14.2 我的举报记录
+GET /api/v1/me/reports?page=1&page_size=20
+14.3 举报详情
+GET /api/v1/reports/{report_id}
+
+权限：
+
+举报人本人
+
+master 
+
+admin
+
+15. moderation.py
+
+这个模块是论坛治理核心。
+
+15.1 举报队列
+GET /api/v1/moderation/reports
+
+权限：master  / admin
+
+查询参数：
+
+status
+
+target_type
+
+space_id
+
+page
+
+page_size
+
+响应项：
+
+{
+  "id": 7001,
+  "target_type": "post",
+  "target_id": 1001,
+  "reason_code": "spam",
+  "detail": "疑似广告",
+  "reporter": {
+    "id": 2,
+    "username": "bob"
+  },
+  "status": "pending",
+  "created_at": "2026-03-06T12:00:00Z"
+}
+15.2 处理举报
+PATCH /api/v1/moderation/reports/{report_id}
+
+请求体：
+
+{
+  "status": "resolved",
+  "action_type": "hide",
+  "action_note": "确认违规，已隐藏"
+}
+
+说明：
+
+处理举报时要联动写入 moderation_actions
+
+可选联动变更目标对象状态
+
+15.3 审核帖子队列
+GET /api/v1/moderation/posts
+
+适用场景：
+
+新用户发帖需审核
+
+某些敏感空间发帖需审核
+
+查询参数：
+
+status=pending_review
+
+space_id
+
+page
+
+page_size
+
+15.4 审核帖子
+PATCH /api/v1/moderation/posts/{post_id}
+
+请求体：
+
+{
+  "status": "published",
+  "action_note": "审核通过"
+}
+
+或
+
+{
+  "status": "hidden",
+  "action_note": "内容不合规"
+}
+15.5 审核资料队列
+GET /api/v1/moderation/resources
+15.6 审核资料
+PATCH /api/v1/moderation/resources/{resource_id}
+15.7 操作日志
+GET /api/v1/moderation/actions?page=1&page_size=20
+
+响应项：
+
+{
+  "id": 1,
+  "operator": {
+    "id": 10,
+    "username": "admin1"
+  },
+  "action_type": "hide",
+  "target_type": "post",
+  "target_id": 1001,
+  "note": "广告内容",
+  "created_at": "2026-03-06T12:00:00Z"
+}
+16. notifications.py
+16.1 通知列表
+GET /api/v1/notifications?page=1&page_size=20
+
+权限：登录
+
+16.2 未读数
+GET /api/v1/notifications/unread-count
+
+响应：
+
+{
+  "unread_count": 5
+}
+16.3 标记单条已读
+PATCH /api/v1/notifications/{notification_id}
+
+请求体：
+
+{
+  "is_read": true
+}
+16.4 全部标记已读
+POST /api/v1/notifications/read-all
+17. search.py
+17.1 搜索帖子
+GET /api/v1/search/posts
+
+查询参数：
+
+keyword
+
+space_id
+
+post_type
+
+page
+
+page_size
+
+17.2 搜索空间
+GET /api/v1/search/spaces
+17.3 搜索资料
+GET /api/v1/search/resources
+17.4 搜索联想
+GET /api/v1/search/suggestions?keyword=高数
+
+响应：
+
+{
+  "spaces": ["高等数学", "数学分析"],
+  "tags": ["期末", "真题"],
+  "posts": ["高数期末怎么复习"]
+}
+18. admin_roles.py
+18.1 角色列表
+GET /api/v1/admin/roles
+
+权限：super_root / admin
+
+18.2 给用户赋角色
+PUT /api/v1/admin/users/{user_id}/roles/{role_code}
+
+权限：super_root
+
+18.3 移除角色
+DELETE /api/v1/admin/users/{user_id}/roles/{role_code}
+19. admin_users.py
+19.1 用户列表
+GET /api/v1/admin/users
+
+查询参数：
+
+keyword
+
+role
+
+trust_level
+
+status
+
+page
+
+page_size
+
+19.2 用户详情
+GET /api/v1/admin/users/{user_id}
+19.3 修改信任等级
+PATCH /api/v1/admin/users/{user_id}/trust
+
+请求体：
+
+{
+  "trust_level": 3,
+  "note": "活跃优质用户"
+}
+19.4 添加用户限制
+POST /api/v1/admin/users/{user_id}/restrictions
+
+请求体：
+
+{
+  "restriction_type": "mute",
+  "expires_at": "2026-03-20T12:00:00Z",
+  "reason": "连续刷屏"
+}
+
+restriction_type 建议：
+
+mute
+
+ban_post
+
+ban_comment
+
+ban_upload
+
+ban_login
+
+19.5 查看用户限制
+GET /api/v1/admin/users/{user_id}/restrictions
+19.6 解除限制
+DELETE /api/v1/admin/users/{user_id}/restrictions/{restriction_id}

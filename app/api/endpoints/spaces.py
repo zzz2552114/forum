@@ -44,3 +44,32 @@ async def read_space_by_id(space_id: int):
         owner_id=space.owner.id if space.owner else None,
         created_at=space.created_at
     )
+
+# --- Space Subscriptions ---
+from app.models.interactions import SpaceSubscription
+
+@router.put("/{space_id}/subscriptions/me")
+async def subscribe_space(
+    space_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    space = await Space.get_or_none(id=space_id)
+    if not space:
+        raise HTTPException(status_code=404, detail="Space not found")
+        
+    obj, created = await SpaceSubscription.get_or_create(user_id=current_user.id, space_id=space_id)
+    if created:
+        from tortoise.expressions import F
+        await Space.filter(id=space.id).update(subscriber_count=F("subscriber_count") + 1)
+    return {"subscribed": True, "created": created}
+
+@router.delete("/{space_id}/subscriptions/me")
+async def unsubscribe_space(
+    space_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    deleted = await SpaceSubscription.filter(user_id=current_user.id, space_id=space_id).delete()
+    if deleted > 0:
+        from tortoise.expressions import F
+        await Space.filter(id=space_id).update(subscriber_count=F("subscriber_count") - 1)
+    return {"message": "Subscription removed"}

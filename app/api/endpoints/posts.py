@@ -8,9 +8,11 @@ from app.models.user import User
 
 router = APIRouter()
 
+from app.models.enums import ContentStatus
+
 @router.get("/", response_model=List[PostResponse])
 async def read_posts(space_id: Optional[int] = None, skip: int = 0, limit: int = 20):
-    query = Post.all()
+    query = Post.filter(status=ContentStatus.PUBLISHED)
     if space_id:
         query = query.filter(space_id=space_id)
     posts = await query.offset(skip).limit(limit).prefetch_related("author", "space")

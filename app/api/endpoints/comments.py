@@ -7,13 +7,15 @@ from app.models.user import User
 
 router = APIRouter()
 
+from app.models.enums import ContentStatus
+
 @router.get("/post/{post_id}", response_model=List[CommentResponse])
 async def read_comments_for_post(post_id: int, skip: int = 0, limit: int = 50):
     post = await Post.get_or_none(id=post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
         
-    comments = await Comment.filter(post_id=post_id).offset(skip).limit(limit).prefetch_related("author", "parent")
+    comments = await Comment.filter(post_id=post_id, status=ContentStatus.PUBLISHED).offset(skip).limit(limit).prefetch_related("author", "parent")
     
     response_comments = []
     for c in comments:

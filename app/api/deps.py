@@ -32,6 +32,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         raise credentials_exception
     return user
 
+def require_role(roles: list[str]):
+    """ Dependency factory for checking a user against a list of allowed roles """
+    async def role_checker(current_user: User = Depends(get_current_active_user)):
+        if current_user.role not in roles:
+            raise HTTPException(
+                status_code=403,
+                detail="Operation not permitted for this role"
+            )
+        return current_user
+    return role_checker
+
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
