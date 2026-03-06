@@ -6,16 +6,16 @@
         <p class="text-slate-500 text-sm mt-2">Join our academic community</p>
       </div>
 
-      <el-form :model="form" @submit.prevent="handleRegister" label-position="top">
-        <el-form-item label="Username">
+      <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleRegister" label-position="top">
+        <el-form-item label="Username" prop="username">
           <el-input v-model="form.username" size="large" placeholder="Choose a username" />
         </el-form-item>
         
-        <el-form-item label="Email">
+        <el-form-item label="Email" prop="email">
           <el-input v-model="form.email" size="large" placeholder="Enter your email" />
         </el-form-item>
 
-        <el-form-item label="Password">
+        <el-form-item label="Password" prop="password">
           <el-input v-model="form.password" type="password" size="large" placeholder="Create a password" show-password />
         </el-form-item>
 
@@ -36,9 +36,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const loading = ref(false)
+const formRef = ref()
 
 const form = ref({
   username: '',
@@ -46,12 +50,30 @@ const form = ref({
   password: ''
 })
 
+const rules = {
+  username: [{ required: true, message: 'Please enter username', trigger: 'blur' }],
+  email: [
+    { required: true, message: 'Please enter email', trigger: 'blur' },
+    { type: 'email', message: 'Please enter valid email', trigger: 'blur' }
+  ],
+  password: [{ required: true, message: 'Please enter password', trigger: 'blur' }]
+}
+
 const handleRegister = async () => {
-  loading.value = true
-  // Mock validation & transition
-  setTimeout(() => {
-    loading.value = false
-    router.push('/login')
-  }, 1000)
+  if (!formRef.value) return
+  await formRef.value.validate(async (valid: boolean) => {
+    if (valid) {
+      loading.value = true
+      try {
+        await authStore.register(form.value)
+        ElMessage.success('Registration successful. You can log in now.')
+        router.push('/login')
+      } catch (error) {
+        // Interceptor handles error messages
+      } finally {
+        loading.value = false
+      }
+    }
+  })
 }
 </script>

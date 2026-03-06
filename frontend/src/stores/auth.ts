@@ -9,10 +9,23 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!token.value)
 
   const login = async (data: any) => {
-    // Stub implementation
-    token.value = 'dummy-token'
+    // API requires application/x-www-form-urlencoded for OAuth2
+    const formData = new URLSearchParams()
+    formData.append('username', data.username)
+    formData.append('password', data.password)
+
+    const res: any = await request.post('/auth/login', formData, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    })
+    token.value = res.access_token
     localStorage.setItem('token', token.value)
-    user.value = { id: 1, username: 'tester', nickname: 'Test User' }
+    
+    // Fetch user profile immediately
+    await fetchMe()
+  }
+
+  const register = async (data: any) => {
+    await request.post('/auth/register', data)
   }
 
   const logout = () => {
@@ -21,16 +34,14 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('token')
   }
 
-  // Called on app start if token exists
   const fetchMe = async () => {
     if (!token.value) return
     try {
-      // user.value = await request.get('/me')
-      user.value = { id: 1, username: 'tester', nickname: 'Test User' } // stub for now
+      user.value = await request.get('/me')
     } catch (e) {
       logout()
     }
   }
 
-  return { token, user, isAuthenticated, login, logout, fetchMe }
+  return { token, user, isAuthenticated, login, register, logout, fetchMe }
 })

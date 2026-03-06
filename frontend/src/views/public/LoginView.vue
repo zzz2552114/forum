@@ -6,12 +6,12 @@
         <p class="text-slate-500 text-sm mt-2">Welcome back to the forum</p>
       </div>
 
-      <el-form :model="form" @submit.prevent="handleLogin" label-position="top">
-        <el-form-item label="Username">
+      <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleLogin" label-position="top">
+        <el-form-item label="Username" prop="username">
           <el-input v-model="form.username" size="large" placeholder="Enter your username" />
         </el-form-item>
         
-        <el-form-item label="Password">
+        <el-form-item label="Password" prop="password">
           <el-input v-model="form.password" type="password" size="large" placeholder="Enter your password" show-password />
         </el-form-item>
 
@@ -31,27 +31,42 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const loading = ref(false)
+const formRef = ref()
 
 const form = ref({
   username: '',
   password: ''
 })
 
+const rules = {
+  username: [{ required: true, message: 'Please enter username', trigger: 'blur' }],
+  password: [{ required: true, message: 'Please enter password', trigger: 'blur' }]
+}
+
 const handleLogin = async () => {
-  loading.value = true
-  try {
-    await authStore.login(form.value)
-    router.push('/app/feed')
-  } catch (error) {
-    // Handled by axios interceptor ideally
-  } finally {
-    loading.value = false
-  }
+  if (!formRef.value) return
+  await formRef.value.validate(async (valid: boolean) => {
+    if (valid) {
+      loading.value = true
+      try {
+        await authStore.login(form.value)
+        ElMessage.success('Login successful')
+        const redirect = route.query.redirect as string || '/app/feed'
+        router.push(redirect)
+      } catch (error) {
+        // Handled by axios interceptor
+      } finally {
+        loading.value = false
+      }
+    }
+  })
 }
 </script>

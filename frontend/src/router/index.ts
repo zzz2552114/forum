@@ -39,6 +39,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'Feed',
         component: () => import('@/views/app/FeedView.vue'),
         meta: { title: '发现' }
+      },
+      {
+        path: '/me/overview',
+        name: 'MeOverview',
+        component: () => import('@/views/app/MeOverviewView.vue'),
+        meta: { title: '我的主页' }
       }
     ]
   }
