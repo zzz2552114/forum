@@ -38,6 +38,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'SpaceDetail',
         component: () => import('@/views/public/SpaceView.vue'),
         meta: { title: '空间主页' }
+      },
+      {
+        path: 'posts/:postId',
+        name: 'PostDetail',
+        component: () => import('@/views/public/PostDetailView.vue'),
+        meta: { title: '帖子详情' }
       }
     ]
   },
