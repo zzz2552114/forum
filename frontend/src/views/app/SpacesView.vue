@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Plus, ChatDotSquare, Document, Trophy } from '@element-plus/icons-vue'
+import { Plus, ChatDotSquare, Document, Trophy, Setting } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
 
@@ -59,21 +59,7 @@ const sections = ref([
   { id: 2, name: '期末资料', icon: Document, unread: 0 },
   { id: 3, name: '成绩评议', icon: Trophy, unread: 12 },
 ])
-// Mock Posts Data
-const posts = ref([
-  { id: 1, title: '关于第二章极限定义的疑问', content: '大家有没有觉得实数理论那里的证明有点跳跃？特别是闭区间套定理...', author: '李华', time: '10分钟前', likes: 12, comments: 5, tags: ['求助', '第二章'] },
-  { id: 2, title: '往年期末试卷汇总（附答案）', content: '整理了最近五年的期中和期末试卷，都在附件里了，祝大家考试顺利。', author: '学霸学长', time: '2小时前', likes: 156, comments: 45, tags: ['资料', '精华', '期末'] },
-  { id: 3, title: '老师说下周小测范围是第一章', content: '刚才课间去问的，大家注意复习。', author: '课代表', time: '5小时前', likes: 34, comments: 12, tags: ['通知'] }
-])
-
 const isCreateModalOpen = ref(false)
-const newPostForm = ref({ title: '', content: '' })
-
-const handlePublish = () => {
-  console.log('Publishing:', newPostForm.value)
-  isCreateModalOpen.value = false
-  newPostForm.value = { title: '', content: '' }
-}
 </script>
 
 <template>
@@ -269,10 +255,6 @@ const handlePublish = () => {
         >
           <el-icon :size="24"><Plus /></el-icon>
         </button>
-
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>

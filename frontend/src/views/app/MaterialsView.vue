@@ -59,7 +59,7 @@ const isUploading = ref(false)
 const handleFileChange = (e: Event) => {
   const target = e.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
-    selectedFile.value = target.files[0]
+    selectedFile.value = target.files[0] ?? null
   }
 }
 
@@ -69,19 +69,16 @@ const submitUpload = async () => {
 
   isUploading.value = true
   try {
-    // 1. Upload logic to /api/v1/files
     const formData = new FormData()
     formData.append('file', selectedFile.value)
     formData.append('biz_type', 'resource')
 
-    // Use native fetch to not mess up with our application/json interceptor easily
     const resFile: any = await request.post('/files', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
     
-    // 2. Create Resource
     await request.post('/resources', {
       title: uploadForm.value.title,
       description: uploadForm.value.description,
@@ -104,18 +101,17 @@ const submitUpload = async () => {
 }
 
 const filteredMaterials = computed(() => {
-  return materials.value
-    .filter((m) => {
-      const matchSubject =
-        activeSubject.value === "全部" || m.subject === activeSubject.value;
-      const matchSearch =
-        !searchQuery.value ||
-        m.title.includes(searchQuery.value) ||
-        m.school.includes(searchQuery.value) ||
-        m.subject.includes(searchQuery.value);
-    })
-  
-  return result.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const filtered = materials.value.filter((m: any) => {
+    const matchSubject =
+      activeSubject.value === "全部" || m.subject === activeSubject.value
+    const matchSearch =
+      !searchQuery.value ||
+      m.title?.includes(searchQuery.value) ||
+      m.school?.includes(searchQuery.value) ||
+      m.subject?.includes(searchQuery.value)
+    return matchSubject && matchSearch
+  })
+  return filtered.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 })
 
 const clearFilters = () => {
