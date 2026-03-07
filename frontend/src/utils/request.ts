@@ -42,8 +42,8 @@ service.interceptors.response.use(
   },
   error => {
     NProgress.done()
-    ElMessage.error(error.response?.data?.message || error.message || 'Network Error')
-    // We can also handle 401 Unauthorized globally here to redirect to /login
+    // Do NOT show ElMessage here — let the calling code handle user-facing error messages
+    // to avoid double-popup (interceptor + catch block both showing toast).
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       window.location.href = '/login'

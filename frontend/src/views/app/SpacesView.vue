@@ -23,8 +23,8 @@ const fetchSpaces = async () => {
     if (spaces.value.length > 0 && !activeSpaceId.value) {
       activeSpaceId.value = spaces.value[0].id
     }
-  } catch (e) {
-    console.error(e)
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || e.message || '获取空间列表失败')
   }
 }
 
@@ -39,7 +39,7 @@ const handleJoinSpace = async () => {
     await request.put(`/spaces/${activeSpaceId.value}/subscriptions/me`)
     ElMessage.success('已加入空间！')
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || '加入失败')
+    ElMessage.error(e.response?.data?.message || e.response?.data?.detail || e.message || '加入失败')
   } finally {
     isJoinLoading.value = false
   }

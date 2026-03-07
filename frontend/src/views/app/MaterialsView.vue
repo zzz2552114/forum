@@ -25,8 +25,8 @@ const fetchMaterials = async () => {
   try {
     const res: any = await request.get('/resources')
     materials.value = res.items || []
-  } catch (e) {
-    console.error('Failed to fetch materials', e)
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || e.message || '获取资料列表失败')
   }
 }
 
@@ -34,8 +34,8 @@ const fetchSpaces = async () => {
   try {
     const res: any = await request.get('/spaces')
     spaces.value = res || []
-  } catch (e) {
-    console.error('Failed to fetch spaces', e)
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || e.message || '获取空间列表失败')
   }
 }
 
@@ -94,7 +94,7 @@ const submitUpload = async () => {
     uploadForm.value = { title: '', description: '', space_id: null, resource_type: 'notes', version_note: 'Initial Upload' }
     fetchMaterials()
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || '上传失败')
+    ElMessage.error(e.response?.data?.message || e.response?.data?.detail || e.message || '上传失败')
   } finally {
     isUploading.value = false
   }

@@ -51,7 +51,7 @@ const submitCategory = async () => {
     ElMessage.success('模块创建成功')
     showCatDialog.value = false
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || '创建失败')
+    ElMessage.error(e.response?.data?.message || e.response?.data?.detail || e.message || '创建失败')
   }
 }
 
@@ -62,7 +62,7 @@ const submitSpace = async () => {
     ElMessage.success('空间创建成功')
     showSpaceDialog.value = false
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || '创建失败')
+    ElMessage.error(e.response?.data?.message || e.response?.data?.detail || e.message || '创建失败')
   }
 }
 </script>
