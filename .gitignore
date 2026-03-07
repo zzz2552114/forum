@@ -39,3 +39,7 @@ htmlcov/
 # DB
 *.sqlite3
 *.db
+
+# Tooling
+.agents/
+.spec/
