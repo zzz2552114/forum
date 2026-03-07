@@ -1,53 +1,95 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { useRouter } from "vue-router";
-import { Search, Bell, Setting, UserFilled } from "@element-plus/icons-vue";
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Search, Bell, Setting, UserFilled, Plus, FolderAdd } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/auth'
+import request from '@/utils/request'
+import { ElMessage } from 'element-plus'
 
-const router = useRouter();
-const searchQuery = ref("");
+const router = useRouter()
+const authStore = useAuthStore()
+const searchQuery = ref('')
+const username = ref('同学')
 
-const props = defineProps({
-  username: {
-    type: String,
-    default: "User",
-  },
-});
+onMounted(() => {
+  if (authStore.user) {
+    username.value = authStore.user.nickname || authStore.user.username || '同学'
+  }
+})
+
+const handleLogout = () => {
+  authStore.logout()
+  router.push('/')
+}
+
+// Dialog States
+const showCatDialog = ref(false)
+const showSpaceDialog = ref(false)
+
+const catForm = ref({ name: '', slug: '', description: '' })
+const spaceForm = ref({ name: '', slug: '', description: '', type: 'course', category_id: null as number | null })
+
+const categories = ref<any[]>([])
+
+const openCatDialog = () => { showCatDialog.value = true; catForm.value = { name: '', slug: '', description: '' } }
+const openSpaceDialog = async () => {
+  showSpaceDialog.value = true
+  spaceForm.value = { name: '', slug: '', description: '', type: 'course', category_id: null }
+  // fetch categories for the select
+  try {
+    const res: any = await request.get('/categories')
+    categories.value = res || []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const submitCategory = async () => {
+  if (!catForm.value.name) return ElMessage.warning('请输入模块名称')
+  try {
+    await request.post('/categories', catForm.value)
+    ElMessage.success('模块创建成功')
+    showCatDialog.value = false
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '创建失败')
+  }
+}
+
+const submitSpace = async () => {
+  if (!spaceForm.value.name || !spaceForm.value.category_id) return ElMessage.warning('请填写必填项')
+  try {
+    await request.post('/spaces', spaceForm.value)
+    ElMessage.success('空间创建成功')
+    showSpaceDialog.value = false
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '创建失败')
+  }
+}
 </script>
 
 <template>
-  <header
-    class="h-[88px] bg-white border-b border-[var(--c-navy)] border-opacity-5 flex items-center justify-between px-[80px] sticky top-0 z-40"
-  >
+  <header class="h-[88px] bg-white border-b border-[var(--c-navy)] border-opacity-5 flex items-center justify-between px-[80px] sticky top-0 z-40">
     <!-- Left: Logo & Welcome -->
     <div class="flex items-center gap-x-6">
-      <div
-        class="w-16 h-16 bg-[var(--c-navy)] rounded-xl flex items-center justify-center cursor-pointer overflow-hidden shadow-sm"
+      <div 
+        class="w-16 h-16 bg-[var(--c-navy)] rounded-[16px] flex items-center justify-center cursor-pointer overflow-hidden shadow-sm"
         @click="router.push('/home')"
       >
-        <span
-          class="font-serif text-[var(--c-fog)] text-xl font-bold tracking-widest pl-1"
-          >FRM</span
-        >
+        <span class="font-serif text-[var(--c-fog)] text-xl font-bold tracking-widest pl-1">FRM</span>
       </div>
       <div class="flex flex-col">
-        <span class="text-[var(--c-navy)] opacity-60 text-sm mb-0.5"
-          >Forum Dashboard</span
-        >
-        <span class="text-[var(--c-navy)] font-medium text-lg"
-          >欢迎你，{{ username }}</span
-        >
+        <span class="text-[var(--c-navy)] opacity-60 text-sm mb-0.5">Forum Dashboard</span>
+        <span class="text-[var(--c-navy)] font-medium text-lg">欢迎你，{{ username }}</span>
       </div>
     </div>
 
     <!-- Middle: Search -->
     <div class="w-[320px]">
       <div class="relative flex items-center">
-        <el-icon class="absolute left-4 text-[var(--c-navy)] opacity-40 z-10"
-          ><Search
-        /></el-icon>
-        <input
-          v-model="searchQuery"
-          type="text"
+        <el-icon class="absolute left-4 text-[var(--c-navy)] opacity-40 z-10"><Search /></el-icon>
+        <input 
+          v-model="searchQuery" 
+          type="text" 
           placeholder="搜索空间、资料、帖子..."
           class="w-full bg-[var(--c-fog)] rounded-[var(--radius-btn)] pl-11 pr-4 py-2.5 text-[var(--c-navy)] focus:outline-none focus:ring-2 focus:ring-[var(--c-gold)] focus:bg-white transition-all border border-transparent"
         />
@@ -56,30 +98,97 @@ const props = defineProps({
 
     <!-- Right: Actions -->
     <div class="flex items-center gap-x-5">
-      <button
-        class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all relative"
-      >
+      <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all relative">
         <el-icon :size="20"><Bell /></el-icon>
-        <!-- Unread badge -->
-        <span
-          class="absolute top-2 right-2.5 w-2 h-2 bg-[var(--c-danger)] rounded-full border-2 border-white"
-        ></span>
+        <span class="absolute top-2 right-2.5 w-2 h-2 bg-[var(--c-danger)] rounded-full border-2 border-white"></span>
       </button>
 
-      <button
-        class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all"
-      >
+      <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all">
         <el-icon :size="20"><Setting /></el-icon>
       </button>
 
-      <!-- Avatar -->
-      <div
-        class="ml-2 w-10 h-10 rounded-full bg-[var(--c-fog)] border border-[var(--c-navy)] border-opacity-10 overflow-hidden cursor-pointer flex items-center justify-center text-[var(--c-navy)] opacity-50 hover:opacity-80 transition-opacity"
-      >
-        <el-icon :size="20"><UserFilled /></el-icon>
-      </div>
+      <!-- Avatar with Dropdown -->
+      <el-dropdown trigger="click" placement="bottom-end">
+        <div class="ml-2 w-10 h-10 rounded-full bg-[var(--c-fog)] border border-[var(--c-navy)] border-opacity-10 overflow-hidden cursor-pointer flex items-center justify-center text-[var(--c-navy)] opacity-50 hover:opacity-80 transition-opacity">
+          <el-icon :size="20"><UserFilled /></el-icon>
+        </div>
+        <template #dropdown>
+          <el-dropdown-menu class="min-w-[160px]">
+            <el-dropdown-item class="py-2.5" @click="openCatDialog">
+              <el-icon><FolderAdd /></el-icon> 创建分类模块
+            </el-dropdown-item>
+            <el-dropdown-item class="py-2.5" @click="openSpaceDialog">
+              <el-icon><Plus /></el-icon> 创建专属空间
+            </el-dropdown-item>
+            <el-dropdown-item divided class="py-2.5 text-red-500" @click="handleLogout">
+              退出登录
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
   </header>
+
+  <!-- Create Category Dialog -->
+  <el-dialog v-model="showCatDialog" title="创建新模块" width="400px" style="border-radius: var(--radius-card)">
+    <div class="space-y-4 pt-2">
+      <div>
+        <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">模块名称 <span class="text-red-500">*</span></label>
+        <input v-model="catForm.name" placeholder="如：课程学习" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-[var(--c-gold)] outline-none" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">标识 (Slug)</label>
+        <input v-model="catForm.slug" placeholder="course-study" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-[var(--c-gold)] outline-none" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">简介</label>
+        <textarea v-model="catForm.description" placeholder="一句话描述这个模块" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-[var(--c-gold)] outline-none resize-none"></textarea>
+      </div>
+    </div>
+    <template #footer>
+      <div class="flex justify-end gap-x-3">
+        <button class="px-5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50" @click="showCatDialog = false">取消</button>
+        <button class="px-5 py-1.5 rounded-lg bg-[var(--c-indigo)] text-white hover:bg-opacity-90" @click="submitCategory">确认创建</button>
+      </div>
+    </template>
+  </el-dialog>
+
+  <!-- Create Space Dialog -->
+  <el-dialog v-model="showSpaceDialog" title="创建新空间" width="480px" style="border-radius: var(--radius-card)">
+    <div class="space-y-4 pt-2">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属模块 <span class="text-red-500">*</span></label>
+          <el-select v-model="spaceForm.category_id" placeholder="选择模块" class="w-full">
+            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </div>
+        <div>
+           <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">空间类型</label>
+           <el-select v-model="spaceForm.type" placeholder="类型" class="w-full">
+             <el-option label="学术/课程" value="course" />
+             <el-option label="学校/校区" value="school" />
+             <el-option label="兴趣/社团" value="interest" />
+           </el-select>
+        </div>
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">空间名称 <span class="text-red-500">*</span></label>
+        <input v-model="spaceForm.name" placeholder="如：高等数学" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-[var(--c-gold)] outline-none" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">描述</label>
+        <textarea v-model="spaceForm.description" placeholder="空间简介和规则..." rows="3" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-[var(--c-gold)] outline-none resize-none"></textarea>
+      </div>
+    </div>
+    <template #footer>
+      <div class="flex justify-end gap-x-3">
+        <button class="px-5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50" @click="showSpaceDialog = false">取消</button>
+        <button class="px-5 py-1.5 rounded-lg bg-[var(--c-indigo)] text-white hover:bg-opacity-90" @click="submitSpace">提交创建</button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <style scoped>

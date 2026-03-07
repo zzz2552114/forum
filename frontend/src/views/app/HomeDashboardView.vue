@@ -5,7 +5,6 @@ import HomeHeader from "@/components/HomeHeader.vue";
 import FeatureCard from "@/components/FeatureCard.vue";
 
 const router = useRouter();
-const username = ref("同学");
 
 // Mock spaces
 const joinedSpaces = ref([
@@ -73,7 +72,7 @@ const explorations = ref([
 <template>
   <div class="min-h-screen bg-[var(--c-fog)] flex flex-col">
     <!-- Header -->
-    <HomeHeader :username="username" />
+    <HomeHeader />
 
     <!-- Main Content -->
     <main class="flex-1 w-full max-w-[1280px] mx-auto px-[80px] py-10 pb-20">

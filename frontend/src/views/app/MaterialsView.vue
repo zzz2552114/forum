@@ -1,92 +1,107 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import HomeHeader from "@/components/HomeHeader.vue";
-import {
-  Search,
-  Document,
-  Download,
-  CollectionTag,
-} from "@element-plus/icons-vue";
+import { ref, computed, onMounted } from 'vue'
+import { Plus, Document, Download, CollectionTag, Search } from '@element-plus/icons-vue'
+import HomeHeader from '@/components/HomeHeader.vue'
+import request from '@/utils/request'
+import { ElMessage } from 'element-plus'
 
-const searchQuery = ref("");
-const activeSubject = ref("全部");
+const searchQuery = ref('')
+const activeSubject = ref('全部')
 
 const subjects = [
-  "全部",
-  "高等数学",
-  "线性代数",
-  "数学分析",
-  "概率论与数理统计",
-  "离散数学",
-  "大学物理",
-];
+  '全部',
+  '高等数学',
+  '线性代数',
+  '数学分析',
+  '概率论与数理统计',
+  '离散数学',
+  '大学物理',
+]
 
-// Mock Materials
-const materials = ref([
-  {
-    id: 1,
-    title: "2023-2024学年第二学期高等数学A期末试卷及答案.pdf",
-    school: "清华大学",
-    subject: "高等数学",
-    updatedAt: "2024-06-20",
-    url: "#",
-    downloads: 1420,
-  },
-  {
-    id: 2,
-    title: "线性代数核心公式速记指南",
-    school: "同济大学",
-    subject: "线性代数",
-    updatedAt: "2024-05-15",
-    url: "#",
-    downloads: 856,
-  },
-  {
-    id: 3,
-    title: "概率论与数理统计重点题型解析",
-    school: "浙江大学",
-    subject: "概率论与数理统计",
-    updatedAt: "2024-04-10",
-    url: "#",
-    downloads: 921,
-  },
-  {
-    id: 4,
-    title: "大学物理精讲笔记整理",
-    school: "北京大学",
-    subject: "大学物理",
-    updatedAt: "2024-03-22",
-    url: "#",
-    downloads: 443,
-  },
-  {
-    id: 5,
-    title: "高等数学B真题演练 (含解析)",
-    school: "复旦大学",
-    subject: "高等数学",
-    updatedAt: "2024-02-18",
-    url: "#",
-    downloads: 310,
-  },
-  {
-    id: 6,
-    title: "离散数学习题集精选",
-    school: "上海交通大学",
-    subject: "离散数学",
-    updatedAt: "2023-12-05",
-    url: "#",
-    downloads: 615,
-  },
-  {
-    id: 7,
-    title: "数学分析考研真题汇编",
-    school: "中国科学技术大学",
-    subject: "数学分析",
-    updatedAt: "2023-10-12",
-    url: "#",
-    downloads: 1024,
-  },
-]);
+const materials = ref<any[]>([])
+const spaces = ref<any[]>([]) // Used for selecting space when uploading resource
+
+const fetchMaterials = async () => {
+  try {
+    const res: any = await request.get('/resources')
+    materials.value = res.items || []
+  } catch (e) {
+    console.error('Failed to fetch materials', e)
+  }
+}
+
+const fetchSpaces = async () => {
+  try {
+    const res: any = await request.get('/spaces')
+    spaces.value = res || []
+  } catch (e) {
+    console.error('Failed to fetch spaces', e)
+  }
+}
+
+onMounted(() => {
+  fetchMaterials()
+  fetchSpaces()
+})
+
+// Upload Modal State
+const showUploadModal = ref(false)
+const uploadForm = ref({
+  title: '',
+  description: '',
+  space_id: null as number | null,
+  resource_type: 'notes',
+  version_note: 'Initial Upload'
+})
+const selectedFile = ref<File | null>(null)
+const isUploading = ref(false)
+
+const handleFileChange = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    selectedFile.value = target.files[0]
+  }
+}
+
+const submitUpload = async () => {
+  if (!selectedFile.value) return ElMessage.warning('请选择要上传的文件')
+  if (!uploadForm.value.title || !uploadForm.value.space_id) return ElMessage.warning('请完成必填项')
+
+  isUploading.value = true
+  try {
+    // 1. Upload logic to /api/v1/files
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+    formData.append('biz_type', 'resource')
+
+    // Use native fetch to not mess up with our application/json interceptor easily
+    const resFile: any = await request.post('/files', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    
+    // 2. Create Resource
+    await request.post('/resources', {
+      title: uploadForm.value.title,
+      description: uploadForm.value.description,
+      space_id: uploadForm.value.space_id,
+      resource_type: uploadForm.value.resource_type,
+      file_id: resFile.id,
+      version_note: uploadForm.value.version_note
+    })
+    
+    ElMessage.success('上传成功')
+    showUploadModal.value = false
+    selectedFile.value = null
+    uploadForm.value = { title: '', description: '', space_id: null, resource_type: 'notes', version_note: 'Initial Upload' }
+    fetchMaterials()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '上传失败')
+  } finally {
+    isUploading.value = false
+  }
+}
 
 const filteredMaterials = computed(() => {
   return materials.value
@@ -98,23 +113,20 @@ const filteredMaterials = computed(() => {
         m.title.includes(searchQuery.value) ||
         m.school.includes(searchQuery.value) ||
         m.subject.includes(searchQuery.value);
-      return matchSubject && matchSearch;
     })
-    .sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
-});
+  
+  return result.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+})
 
 const clearFilters = () => {
-  searchQuery.value = "";
-  activeSubject.value = "全部";
-};
+  searchQuery.value = ''
+  activeSubject.value = '全部'
+}
 </script>
 
 <template>
   <div class="min-h-screen bg-[var(--c-fog)] flex flex-col">
-    <HomeHeader username="同学" />
+    <HomeHeader />
 
     <main
       class="flex-1 w-full max-w-[1280px] mx-auto px-[80px] py-10 pb-20 flex flex-col h-[calc(100vh-88px)]"
@@ -144,6 +156,14 @@ const clearFilters = () => {
             class="h-14 px-8 bg-[var(--c-indigo)] text-white rounded-[16px] font-medium text-lg hover:bg-opacity-90 shadow-lg shadow-[var(--c-indigo)]/20 transition-all shrink-0"
           >
             搜索库
+          </button>
+          
+          <!-- Upload Button -->
+          <button
+            @click="showUploadModal = true"
+            class="h-14 px-6 bg-[var(--c-gold)] text-white rounded-[16px] font-medium text-lg hover:bg-opacity-90 shadow-lg shadow-[var(--c-gold)]/20 transition-all shrink-0 flex items-center gap-x-2"
+          >
+            <el-icon><Plus /></el-icon> 上传资料
           </button>
         </div>
         <div class="mt-4 flex items-center justify-between">
@@ -260,10 +280,11 @@ const clearFilters = () => {
                 class="flex items-center gap-x-4 pl-4 border-l border-[var(--c-navy)]/5 shrink-0"
               >
                 <div class="text-[var(--c-navy)]/40 text-sm hidden lg:block">
-                  {{ mat.downloads }} 次下载
+                  {{ mat.download_count }} 次下载
                 </div>
+                <!-- Assuming backend exposes file url through versions or direct url -->
                 <a
-                  :href="mat.url"
+                  :href="mat.versions?.[0]?.file_url || '#'"
                   target="_blank"
                   class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white text-[var(--c-indigo)] border border-[var(--c-navy)]/10 hover:border-[var(--c-indigo)] group-hover:bg-[var(--c-indigo)] group-hover:text-white transition-all shadow-sm"
                 >
@@ -286,6 +307,54 @@ const clearFilters = () => {
         </div>
       </div>
     </main>
+
+    <!-- Upload Modal -->
+    <el-dialog v-model="showUploadModal" title="上传资料分享给同学们" width="500px" style="border-radius: var(--radius-card)">
+      <div class="space-y-4 pt-2 pb-2">
+        <div>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">标题 <span class="text-red-500">*</span></label>
+          <input v-model="uploadForm.title" placeholder="资料主要内容说明" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-[var(--c-gold)] outline-none" />
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属空间 <span class="text-red-500">*</span></label>
+            <el-select v-model="uploadForm.space_id" placeholder="选择空间" class="w-full">
+              <el-option v-for="s in spaces" :key="s.id" :label="s.name" :value="s.id" />
+            </el-select>
+          </div>
+          <div>
+             <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">资料类别</label>
+             <el-select v-model="uploadForm.resource_type" placeholder="类别" class="w-full">
+               <el-option label="往年试卷" value="past_exam" />
+               <el-option label="课堂笔记" value="notes" />
+               <el-option label="习题与答案" value="solution" />
+               <el-option label="其他" value="other" />
+             </el-select>
+          </div>
+        </div>
+        
+        <!-- File Input -->
+        <div>
+           <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">选择文件 <span class="text-red-500">*</span></label>
+           <input type="file" @change="handleFileChange" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[var(--c-indigo)] file:text-white hover:file:opacity-90"/>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">补充描述</label>
+          <textarea v-model="uploadForm.description" placeholder="关于该资料的说明..." rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-[var(--c-gold)] outline-none resize-none"></textarea>
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-x-3">
+          <button class="px-5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50" :disabled="isUploading" @click="showUploadModal = false">取消</button>
+          <button class="px-5 py-1.5 rounded-lg bg-[var(--c-indigo)] text-white hover:bg-opacity-90 flex items-center justify-center disabled:opacity-50" :disabled="isUploading" @click="submitUpload">
+             <span v-if="isUploading" class="mr-2 inline-block w-4 h-4 border-2 border-[var(--c-fog)] border-t-transparent rounded-full animate-spin"></span>
+             {{ isUploading ? '上传中...' : '开始上传' }}
+          </button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

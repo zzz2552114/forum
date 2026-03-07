@@ -1,67 +1,87 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import HomeHeader from "@/components/HomeHeader.vue";
-import {
-  Setting,
-  Plus,
-  ChatDotRound,
-  Document,
-  Message,
-  Collection,
-} from "@element-plus/icons-vue";
+import { ref, computed, onMounted } from 'vue'
+import { Plus, ChatDotSquare, Document, Trophy } from '@element-plus/icons-vue'
+import request from '@/utils/request'
+import { ElMessage } from 'element-plus'
 
-const username = ref("同学");
+// State
+const spaces = ref<any[]>([])
+const activeSpaceId = ref<number | null>(null)
+const activeSectionId = ref(1)
 
-// Mock Spaces
-const spaces = ref([
-  { id: "1", name: "XX大学空间", type: "school", color: "bg-blue-500" },
-  { id: "2", name: "高等数学空间", type: "course", color: "bg-green-500" },
-  {
-    id: "3",
-    name: "考研交流空间",
-    type: "activity",
-    color: "bg-[var(--c-gold)]",
-  },
-]);
+const isJoinLoading = ref(false)
+
+// Fetch all spaces
+const fetchSpaces = async () => {
+  try {
+    const res: any = await request.get('/spaces')
+    // Temporarily showing all spaces, ideally we show "joined" spaces here
+    // but without member endpoint, we show all available for now
+    spaces.value = res || []
+    
+    // Set first active if not selected
+    if (spaces.value.length > 0 && !activeSpaceId.value) {
+      activeSpaceId.value = spaces.value[0].id
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+onMounted(() => {
+  fetchSpaces()
+})
+
+const handleJoinSpace = async () => {
+  if (!activeSpaceId.value) return
+  isJoinLoading.value = true
+  try {
+    await request.put(`/spaces/${activeSpaceId.value}/subscriptions/me`)
+    ElMessage.success('已加入空间！')
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '加入失败')
+  } finally {
+    isJoinLoading.value = false
+  }
+}
+
+const activeSpace = computed(() => {
+  return spaces.value.find((s: any) => s.id === activeSpaceId.value)
+})
+
+const activeSection = computed(() => {
+  return sections.value.find((s: any) => s.id === activeSectionId.value)
+})
 
 // Mock Sections
 const sections = ref([
-  { id: "post", name: "发帖区", icon: Message },
-  { id: "chat", name: "聊天区", icon: ChatDotRound },
-  { id: "exam", name: "学校真题区", icon: Document },
-  { id: "policy", name: "学校政策区", icon: Collection },
-]);
+  { id: 1, name: '课前讨论', icon: ChatDotSquare, unread: 3 },
+  { id: 2, name: '期末资料', icon: Document, unread: 0 },
+  { id: 3, name: '成绩评议', icon: Trophy, unread: 12 },
+])
+// Mock Posts Data
+const posts = ref([
+  { id: 1, title: '关于第二章极限定义的疑问', content: '大家有没有觉得实数理论那里的证明有点跳跃？特别是闭区间套定理...', author: '李华', time: '10分钟前', likes: 12, comments: 5, tags: ['求助', '第二章'] },
+  { id: 2, title: '往年期末试卷汇总（附答案）', content: '整理了最近五年的期中和期末试卷，都在附件里了，祝大家考试顺利。', author: '学霸学长', time: '2小时前', likes: 156, comments: 45, tags: ['资料', '精华', '期末'] },
+  { id: 3, title: '老师说下周小测范围是第一章', content: '刚才课间去问的，大家注意复习。', author: '课代表', time: '5小时前', likes: 34, comments: 12, tags: ['通知'] }
+])
 
-const selectedSpaceId = ref(spaces.value[0]?.id ?? null);
-const selectedSection = ref("post");
+const isCreateModalOpen = ref(false)
+const newPostForm = ref({ title: '', content: '' })
 
-const onSelectSpace = (spaceId: string) => {
-  selectedSpaceId.value = spaceId;
-  selectedSection.value = "post";
-};
-
-const currentSpace = computed(() =>
-  spaces.value.find((s) => s.id === selectedSpaceId.value),
-);
-const currentSectionName = computed(
-  () => sections.value.find((s) => s.id === selectedSection.value)?.name,
-);
-
-// Post Modal State
-const showPostModal = ref(false);
-const postTitle = ref("");
-const postContent = ref("");
-
-const handlePost = () => {
-  showPostModal.value = false;
-  postTitle.value = "";
-  postContent.value = "";
-};
+const handlePublish = () => {
+  console.log('Publishing:', newPostForm.value)
+  isCreateModalOpen.value = false
+  newPostForm.value = { title: '', content: '' }
+}
 </script>
 
 <template>
-  <div class="h-screen bg-[var(--c-fog)] flex flex-col overflow-hidden">
-    <HomeHeader :username="username" />
+  <div class="min-h-screen bg-[var(--c-fog)] flex flex-col h-screen overflow-hidden">
+    <!-- Header: Shrink 0 to keep constant height -->
+    <div class="shrink-0">
+      <HomeHeader />
+    </div>
 
     <div class="flex-1 flex overflow-hidden">
       <!-- Left Column: Spaces List (2 Cols ~ 16.6%) -->
@@ -79,16 +99,14 @@ const handlePost = () => {
             v-for="space in spaces"
             :key="space.id"
             class="group flex items-center gap-x-3 p-2 rounded-[16px] cursor-pointer transition-all relative"
-            :class="
-              selectedSpaceId === space.id ? 'bg-white/10' : 'hover:bg-white/5'
-            "
-            @click="onSelectSpace(space.id)"
+            :class="activeSpaceId === space.id ? 'bg-white/10' : 'hover:bg-white/5'"
+            @click="activeSpaceId = space.id"
           >
             <!-- Active Indicator Line -->
             <div
               class="absolute left-[-12px] w-1 bg-white rounded-r-md transition-all duration-300"
               :class="
-                selectedSpaceId === space.id
+                activeSpaceId === space.id
                   ? 'h-8 opacity-100'
                   : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-50'
               "
@@ -98,7 +116,7 @@ const handlePost = () => {
               class="w-12 h-12 shrink-0 rounded-[14px] flex items-center justify-center text-white font-bold text-lg shadow-md transition-transform"
               :class="[
                 space.color,
-                selectedSpaceId === space.id
+                activeSpaceId === space.id
                   ? 'rounded-[10px]'
                   : 'group-hover:rounded-[10px]',
               ]"
@@ -110,7 +128,7 @@ const handlePost = () => {
               <div
                 class="text-white/90 font-medium truncate text-sm"
                 :class="
-                  selectedSpaceId === space.id ? 'text-white font-bold' : ''
+                  activeSpaceId === space.id ? 'text-white font-bold' : ''
                 "
               >
                 {{ space.name }}
@@ -138,55 +156,55 @@ const handlePost = () => {
 
       <!-- Middle Column: Sections (3 Cols ~ 25%) -->
       <div
-        class="w-[280px] shrink-0 bg-[#172033] flex flex-col border-r border-black/10 z-0"
+        class="w-[280px] shrink-0 bg-white flex flex-col border-r border-[var(--c-navy)] border-opacity-10 z-0"
       >
-        <div
-          class="h-[60px] flex items-center px-4 border-b border-white/5 shadow-sm"
-        >
-          <h2 class="text-white font-bold text-lg truncate">
-            {{ currentSpace?.name || "选择空间" }}
-          </h2>
+        <div class="h-16 flex items-center px-6 border-b border-[var(--c-navy)] border-opacity-10 shrink-0">
+          <h2 class="text-lg font-bold text-[var(--c-navy)]">{{ activeSpace?.name || '选择空间' }}</h2>
         </div>
 
-        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-0.5">
-          <div
-            v-for="sec in sections"
-            :key="sec.id"
-            class="flex items-center gap-x-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
-            :class="
-              selectedSection === sec.id
-                ? 'bg-white/10 text-white font-medium'
-                : 'text-white/60 hover:bg-white/5 hover:text-white/90'
-            "
-            @click="selectedSection = sec.id"
+        <!-- Sections List -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
+          <div 
+            v-for="section in sections" 
+            :key="section.id"
+            class="flex items-center justify-between px-3 py-2 rounded-[var(--radius-btn)] cursor-pointer text-sm font-medium transition-all"
+            :class="activeSectionId === section.id ? 'bg-[var(--c-indigo)] text-white shadow-md shadow-[var(--c-indigo)]/20' : 'text-[var(--c-navy)] opacity-70 hover:opacity-100 hover:bg-[var(--c-fog)]'"
+            @click="activeSectionId = section.id"
           >
-            <el-icon :size="18" class="opacity-80"
-              ><component :is="sec.icon"
-            /></el-icon>
-            <span class="text-[15px]">{{ sec.name }}</span>
+            <div class="flex items-center gap-x-3">
+              <el-icon :size="18" class="opacity-80"
+                ><component :is="section.icon"
+              /></el-icon>
+              <span>{{ section.name }}</span>
+            </div>
+            <span v-if="section.unread > 0" class="text-xs font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">{{ section.unread }}</span>
           </div>
         </div>
       </div>
 
       <!-- Right Column: Content Area (7 Cols ~ 58.3%) -->
-      <div class="flex-1 bg-white relative flex flex-col min-w-0">
-        <!-- Top Toolbar -->
-        <div
-          class="h-[60px] shrink-0 flex items-center justify-between px-6 border-b border-[var(--c-navy)]/5 sticky top-0 bg-white/90 backdrop-blur-sm z-10 shadow-sm"
-        >
-          <div class="flex items-center gap-x-3 text-[var(--c-navy)]">
-            <span class="font-bold text-lg"># {{ currentSectionName }}</span>
+      <div class="flex-1 h-full min-w-0 bg-white flex flex-col relative">
+        <!-- Content Header -->
+        <div class="h-16 flex items-center justify-between px-8 border-b border-[var(--c-navy)] border-opacity-10 shrink-0 bg-white z-10 sticky top-0">
+          <div class="flex items-center gap-x-3">
+            <h3 class="text-lg font-bold text-[var(--c-navy)]"># {{ activeSection?.name }}</h3>
             <span
               class="text-xs px-2 py-0.5 rounded-full bg-[var(--c-fog)] text-[var(--c-navy)]/60 font-medium line-clamp-1 border border-[var(--c-navy)]/5"
             >
-              来自 {{ currentSpace?.name }}
+              来自 {{ activeSpace?.name }}
             </span>
           </div>
-          <button
-            class="w-8 h-8 rounded hover:bg-[var(--c-fog)] flex items-center justify-center text-[var(--c-navy)]/60 hover:text-[var(--c-navy)] transition-colors"
-          >
-            <el-icon :size="20"><Setting /></el-icon>
-          </button>
+          
+          <div class="flex items-center gap-x-4">
+            <button v-if="activeSpace" @click="handleJoinSpace" :disabled="isJoinLoading" class="px-4 py-1.5 rounded-full bg-[var(--c-gold)] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+              {{ isJoinLoading ? '加入中...' : '加入空间' }}
+            </button>
+            <button
+              class="w-8 h-8 rounded hover:bg-[var(--c-fog)] flex items-center justify-center text-[var(--c-navy)]/60 hover:text-[var(--c-navy)] transition-colors"
+            >
+              <el-icon :size="20"><Setting /></el-icon>
+            </button>
+          </div>
         </div>
 
         <!-- Scrollable Content -->
@@ -195,7 +213,7 @@ const handlePost = () => {
         >
           <!-- Empty State Mockup -->
           <div
-            v-if="selectedSection !== 'post'"
+            v-if="activeSectionId !== 1"
             class="h-full flex flex-col items-center justify-center text-[var(--c-navy)]/40 mt-20"
           >
             <div
@@ -203,7 +221,7 @@ const handlePost = () => {
             >
               <el-icon :size="32"
                 ><component
-                  :is="sections.find((s) => s.id === selectedSection)?.icon"
+                  :is="activeSection?.icon"
               /></el-icon>
             </div>
             <p class="text-lg font-medium">还没有内容</p>
@@ -245,63 +263,13 @@ const handlePost = () => {
         </div>
 
         <!-- Floating Action Button -->
-        <button
-          class="absolute right-8 bottom-8 w-14 h-14 bg-[var(--c-indigo)] text-white rounded-2xl flex items-center justify-center shadow-xl shadow-[var(--c-indigo)]/30 hover:bg-[var(--c-navy)] hover:-translate-y-1 transition-all z-20"
-          @click="showPostModal = true"
+        <button 
+          class="absolute bottom-8 right-8 w-14 h-14 bg-[var(--c-indigo)] text-white rounded-full flex items-center justify-center shadow-user transition-all hover:-translate-y-1 hover:shadow-xl z-20 group"
+          @click="isCreateModalOpen = true"
         >
           <el-icon :size="24"><Plus /></el-icon>
         </button>
 
-        <!-- Post Modal Overlay -->
-        <div
-          v-if="showPostModal"
-          class="absolute inset-0 z-30 flex items-center justify-center bg-[var(--c-navy)]/40 backdrop-blur-sm p-4"
-        >
-          <div
-            class="w-full max-w-[600px] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden"
-            @click.stop
-          >
-            <div
-              class="px-6 py-4 border-b border-[var(--c-fog)] flex items-center justify-between bg-white"
-            >
-              <h2 class="text-lg font-bold text-[var(--c-navy)]">
-                在 #{{ currentSectionName }} 发帖
-              </h2>
-              <button
-                @click="showPostModal = false"
-                class="text-[var(--c-navy)]/40 hover:text-[var(--c-navy)]"
-              >
-                Esc
-              </button>
-            </div>
-            <div class="p-6 flex flex-col gap-y-4">
-              <input
-                v-model="postTitle"
-                type="text"
-                placeholder="标题（必填）"
-                class="w-full shrink-0 text-lg font-medium bg-[var(--c-fog)] rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[var(--c-gold)] transition-all border border-transparent placeholder:text-[var(--c-navy)]/30"
-              />
-              <textarea
-                v-model="postContent"
-                placeholder="在此输入你的内容..."
-                class="w-full flex-1 min-h-[200px] bg-[var(--c-fog)] rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[var(--c-gold)] transition-all border border-transparent resize-none placeholder:text-[var(--c-navy)]/30"
-              ></textarea>
-            </div>
-            <div
-              class="px-6 py-4 border-t border-[var(--c-fog)] bg-white/50 flex justify-end gap-x-3"
-            >
-              <button
-                @click="showPostModal = false"
-                class="px-6 py-2.5 rounded-[12px] text-[var(--c-navy)]/60 font-medium hover:bg-[var(--c-fog)] transition-colors"
-              >
-                取消
-              </button>
-              <button
-                @click="handlePost"
-                class="px-8 py-2.5 rounded-[12px] bg-[var(--c-indigo)] text-white font-medium shadow-md shadow-[var(--c-indigo)]/20 hover:bg-opacity-90 transition-all"
-              >
-                发布
-              </button>
             </div>
           </div>
         </div>
