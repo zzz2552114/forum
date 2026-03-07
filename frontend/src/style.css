@@ -1,25 +1,74 @@
 @import "tailwindcss";
 
-html, body, #app {
+@theme {
+  --color-navy: #0f1b2d;
+  --color-indigo: #17314d;
+  --color-fog: #f5f7fa;
+  --color-gold: #c9a96b;
+  --color-cyan: #7fa9c7;
+  --color-success: #4d8d7a;
+  --color-danger: #a8655e;
+}
+
+:root {
+  --c-navy: #0f1b2d;
+  --c-indigo: #17314d;
+  --c-fog: #f5f7fa;
+  --c-gold: #c9a96b;
+  --c-cyan: #7fa9c7;
+  --c-success: #4d8d7a;
+  --c-danger: #a8655e;
+
+  --radius-btn: 12px;
+  --radius-drawer: 16px;
+  --radius-card: 20px;
+
+  --shadow-card-light: 0 12px 40px rgba(15, 23, 34, 0.08);
+  --shadow-overlay-dark: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+html,
+body,
+#app {
   height: 100%;
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: #f8fafc; /* slate-50 */
-  color: #0f172a; /* slate-900 */
+  font-family:
+    "Source Han Sans SC",
+    "Noto Sans SC",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  background-color: var(--c-fog);
+  color: var(--c-navy);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Source Han Serif SC", "Noto Serif SC", serif;
 }
 
 /* NProgress Customization */
 #nprogress .bar {
-  background: #3b82f6 !important; /* blue-500 */
+  background: var(--c-gold) !important;
   height: 3px !important;
 }
 
 #nprogress .peg {
-  box-shadow: 0 0 10px #3b82f6, 0 0 5px #3b82f6 !important;
+  box-shadow:
+    0 0 10px var(--c-gold),
+    0 0 5px var(--c-gold) !important;
 }
 
 #nprogress .spinner-icon {
-  border-top-color: #3b82f6 !important;
-  border-left-color: #3b82f6 !important;
+  border-top-color: var(--c-gold) !important;
+  border-left-color: var(--c-gold) !important;
 }

@@ -1,120 +1,96 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import type { RouteRecordRaw } from 'vue-router'
-import PublicLayout from '@/layouts/PublicLayout.vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { useAuthStore } from '@/stores/auth'
-import NProgress from 'nprogress'
+import { createRouter, createWebHistory } from "vue-router";
+import type { RouteRecordRaw } from "vue-router";
+import AppLayout from "@/layouts/AppLayout.vue";
+import { useAuthStore } from "@/stores/auth";
+import NProgress from "nprogress";
 
 const routes: Array<RouteRecordRaw> = [
   {
-    path: '/',
-    component: PublicLayout,
-    children: [
-      {
-        path: '',
-        name: 'Home',
-        component: () => import('@/views/public/HomeView.vue'),
-        meta: { title: '首页' }
-      },
-      {
-        path: 'login',
-        name: 'Login',
-        component: () => import('@/views/public/LoginView.vue'),
-        meta: { title: '登录' }
-      },
-      {
-        path: 'register',
-        name: 'Register',
-        component: () => import('@/views/public/RegisterView.vue'),
-        meta: { title: '注册' }
-      },
-      {
-        path: 'explore/spaces',
-        name: 'ExploreSpaces',
-        component: () => import('@/views/public/ExploreSpacesView.vue'),
-        meta: { title: '探索空间' }
-      },
-      {
-        path: 'spaces/:spaceId',
-        name: 'SpaceDetail',
-        component: () => import('@/views/public/SpaceView.vue'),
-        meta: { title: '空间主页' }
-      },
-      {
-        path: 'posts/:postId',
-        name: 'PostDetail',
-        component: () => import('@/views/public/PostDetailView.vue'),
-        meta: { title: '帖子详情' }
-      },
-      {
-        path: 'search',
-        name: 'Search',
-        component: () => import('@/views/public/SearchView.vue'),
-        meta: { title: '搜索' }
-      }
-    ]
+    path: "/",
+    name: "Landing",
+    component: () => import("@/views/public/HomeView.vue"),
+    meta: { title: "首页" },
   },
   {
-    path: '/app',
+    path: "/home",
+    name: "HomeDashboard",
+    component: () => import("@/views/app/HomeDashboardView.vue"),
+    meta: { title: "主页", requiresAuth: false }, // Allowing mock view without real auth for now
+  },
+  {
+    path: "/spaces",
+    name: "Spaces",
+    component: () => import("@/views/app/SpacesView.vue"),
+    meta: { title: "讨论空间", requiresAuth: false },
+  },
+  {
+    path: "/materials",
+    name: "Materials",
+    component: () => import("@/views/app/MaterialsView.vue"),
+    meta: { title: "资料汇编", requiresAuth: false },
+  },
+  // Keep the old routes around for reference or fallback if needed
+  {
+    path: "/app",
     component: AppLayout,
     meta: { requiresAuth: true },
     children: [
       {
-        path: 'feed',
-        name: 'Feed',
-        component: () => import('@/views/app/FeedView.vue'),
-        meta: { title: '发现' }
+        path: "feed",
+        name: "Feed",
+        component: () => import("@/views/app/FeedView.vue"),
+        meta: { title: "发现" },
       },
       {
-        path: '/posts/new',
-        name: 'PostEditor',
-        component: () => import('@/views/app/PostEditorView.vue'),
-        meta: { title: '发布帖子' }
+        path: "/posts/new",
+        name: "PostEditor",
+        component: () => import("@/views/app/PostEditorView.vue"),
+        meta: { title: "发布帖子" },
       },
       {
-        path: '/me/overview',
-        name: 'MeOverview',
-        component: () => import('@/views/app/MeOverviewView.vue'),
-        meta: { title: '我的主页' }
+        path: "/me/overview",
+        name: "MeOverview",
+        component: () => import("@/views/app/MeOverviewView.vue"),
+        meta: { title: "我的主页" },
       },
       {
-        path: '/notifications',
-        name: 'Notifications',
-        component: () => import('@/views/app/NotificationsView.vue'),
-        meta: { title: '消息中心' }
-      }
-    ]
-  }
-]
+        path: "/notifications",
+        name: "Notifications",
+        component: () => import("@/views/app/NotificationsView.vue"),
+        meta: { title: "消息中心" },
+      },
+    ],
+  },
+];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
-})
+  routes,
+});
 
 // Route Guards — use return-only style (Vue Router 4)
 router.beforeEach(async (to) => {
-  NProgress.start()
+  NProgress.start();
 
-  const authStore = useAuthStore()
+  const authStore = useAuthStore();
 
   if (to.meta.title) {
-    document.title = `${to.meta.title} - Forum`
+    document.title = `${to.meta.title} - Forum`;
   }
 
   // Ensure initial user state is loaded if token exists
   if (authStore.isAuthenticated && !authStore.user) {
-    await authStore.fetchMe()
+    await authStore.fetchMe();
   }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return { path: '/login', query: { redirect: to.fullPath } }
+    return { path: "/login", query: { redirect: to.fullPath } };
   }
   // return undefined = allow navigation
-})
+});
 
 router.afterEach(() => {
-  NProgress.done()
-})
+  NProgress.done();
+});
 
-export default router
+export default router;

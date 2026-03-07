@@ -17,6 +17,6 @@ describe('App.vue', () => {
     await router.isReady()
     
     expect(wrapper.exists()).toBe(true)
-    expect(wrapper.html()).toContain('Welcome to Forum')
+    expect(wrapper.html()).toContain('校园论坛')
   })
 })

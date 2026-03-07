@@ -75,9 +75,9 @@ const stats = ref([
 onMounted(async () => {
   try {
     const data: any = await request.get('/me/stats')
-    stats.value[0].value = data.post_count || 0
-    stats.value[1].value = data.comment_count || 0
-    stats.value[2].value = data.resource_count || 0
+    if (stats.value[0]) stats.value[0].value = data.post_count || 0
+    if (stats.value[1]) stats.value[1].value = data.comment_count || 0
+    if (stats.value[2]) stats.value[2].value = data.resource_count || 0
   } catch (e) {
     console.error('Failed to fetch stats', e)
   }
