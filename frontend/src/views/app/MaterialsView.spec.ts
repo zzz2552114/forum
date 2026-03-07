@@ -40,8 +40,8 @@ describe('MaterialsView.vue', () => {
     mountView()
     await vi.dynamicImportSettled()
     
-    expect(mockGet).toHaveBeenCalledWith('/resources')
-    expect(mockGet).toHaveBeenCalledWith('/spaces')
+    expect(mockGet).toHaveBeenCalledWith('/resources/')
+    expect(mockGet).toHaveBeenCalledWith('/spaces/')
   })
 
   it('renders the search bar and subject filter', async () => {
@@ -59,7 +59,7 @@ describe('MaterialsView.vue', () => {
   it('filteredMaterials filters by subject correctly', async () => {
     const mockGet = vi.mocked(request.get)
     mockGet.mockImplementation(async (url: string) => {
-      if (url === '/resources') {
+      if (url === '/resources/') {
         return {
           items: [
             { id: 1, title: 'Math Paper', subject: '高等数学', school: '清华', created_at: '2024-01-01' },

@@ -40,7 +40,7 @@ describe('SpacesView.vue', () => {
     // Wait for onMounted async call
     await vi.dynamicImportSettled()
     
-    expect(mockGet).toHaveBeenCalledWith('/spaces')
+    expect(mockGet).toHaveBeenCalledWith('/spaces/')
   })
 
   it('renders the spaces sidebar structure', async () => {
@@ -67,6 +67,6 @@ describe('SpacesView.vue', () => {
     vm.activeSpaceId = 42
     await vm.handleJoinSpace()
     
-    expect(mockPut).toHaveBeenCalledWith('/spaces/42/subscriptions/me')
+    expect(mockPut).toHaveBeenCalledWith('/spaces/42/subscriptions/me/')
   })
 })

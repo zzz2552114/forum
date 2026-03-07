@@ -60,7 +60,7 @@ describe('HomeHeader.vue', () => {
     vm.catForm = { name: '测试模块', slug: 'test-module', description: '测试' }
     await vm.submitCategory()
     
-    expect(mockPost).toHaveBeenCalledWith('/categories', {
+    expect(mockPost).toHaveBeenCalledWith('/categories/', {
       name: '测试模块',
       slug: 'test-module',
       description: '测试'
@@ -80,7 +80,7 @@ describe('HomeHeader.vue', () => {
     await vm.submitCategory()
     
     // Verify post was called
-    expect(mockPost).toHaveBeenCalledWith('/categories', expect.any(Object))
+    expect(mockPost).toHaveBeenCalledWith('/categories/', expect.any(Object))
     // The error should be handled by the catch block only (no interceptor toast)
   })
 
@@ -94,7 +94,7 @@ describe('HomeHeader.vue', () => {
     vm.spaceForm = { name: '高等数学', slug: 'math', description: '数学空间', type: 'course', category_id: 1 }
     await vm.submitSpace()
     
-    expect(mockPost).toHaveBeenCalledWith('/spaces', {
+    expect(mockPost).toHaveBeenCalledWith('/spaces/', {
       name: '高等数学',
       slug: 'math',
       description: '数学空间',

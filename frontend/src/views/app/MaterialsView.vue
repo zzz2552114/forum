@@ -23,7 +23,7 @@ const spaces = ref<any[]>([]) // Used for selecting space when uploading resourc
 
 const fetchMaterials = async () => {
   try {
-    const res: any = await request.get('/resources')
+    const res: any = await request.get('/resources/')
     materials.value = res.items || []
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || e.message || '获取资料列表失败')
@@ -32,7 +32,7 @@ const fetchMaterials = async () => {
 
 const fetchSpaces = async () => {
   try {
-    const res: any = await request.get('/spaces')
+    const res: any = await request.get('/spaces/')
     spaces.value = res || []
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || e.message || '获取空间列表失败')
@@ -73,13 +73,13 @@ const submitUpload = async () => {
     formData.append('file', selectedFile.value)
     formData.append('biz_type', 'resource')
 
-    const resFile: any = await request.post('/files', formData, {
+    const resFile: any = await request.post('/files/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
     
-    await request.post('/resources', {
+    await request.post('/resources/', {
       title: uploadForm.value.title,
       description: uploadForm.value.description,
       space_id: uploadForm.value.space_id,

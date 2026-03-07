@@ -14,7 +14,7 @@ const isJoinLoading = ref(false)
 // Fetch all spaces
 const fetchSpaces = async () => {
   try {
-    const res: any = await request.get('/spaces')
+    const res: any = await request.get('/spaces/')
     // Temporarily showing all spaces, ideally we show "joined" spaces here
     // but without member endpoint, we show all available for now
     spaces.value = res || []
@@ -36,7 +36,7 @@ const handleJoinSpace = async () => {
   if (!activeSpaceId.value) return
   isJoinLoading.value = true
   try {
-    await request.put(`/spaces/${activeSpaceId.value}/subscriptions/me`)
+    await request.put(`/spaces/${activeSpaceId.value}/subscriptions/me/`)
     ElMessage.success('已加入空间！')
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || e.response?.data?.detail || e.message || '加入失败')

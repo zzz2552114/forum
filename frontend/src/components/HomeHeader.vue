@@ -37,7 +37,7 @@ const openSpaceDialog = async () => {
   spaceForm.value = { name: '', slug: '', description: '', type: 'course', category_id: null }
   // fetch categories for the select
   try {
-    const res: any = await request.get('/categories')
+    const res: any = await request.get('/categories/')
     categories.value = res || []
   } catch (e) {
     console.error(e)
@@ -47,7 +47,7 @@ const openSpaceDialog = async () => {
 const submitCategory = async () => {
   if (!catForm.value.name) return ElMessage.warning('请输入模块名称')
   try {
-    await request.post('/categories', catForm.value)
+    await request.post('/categories/', catForm.value)
     ElMessage.success('模块创建成功')
     showCatDialog.value = false
   } catch (e: any) {
@@ -58,7 +58,7 @@ const submitCategory = async () => {
 const submitSpace = async () => {
   if (!spaceForm.value.name || !spaceForm.value.category_id) return ElMessage.warning('请填写必填项')
   try {
-    await request.post('/spaces', spaceForm.value)
+    await request.post('/spaces/', spaceForm.value)
     ElMessage.success('空间创建成功')
     showSpaceDialog.value = false
   } catch (e: any) {
