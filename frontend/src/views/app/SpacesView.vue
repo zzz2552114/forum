@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, ChatDotSquare, Document, ChatLineRound, Location, ShoppingCart, Headset, Star } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, watch, markRaw } from 'vue'
+import { Plus, ChatDotSquare, Document, ChatLineRound, Location, ShoppingCart, Headset, Star, Setting } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -99,13 +99,13 @@ const activeSection = computed(() => {
 })
 
 const sections = ref([
-  { id: 1, name: '发帖区', icon: ChatDotSquare, unread: 0 },
-  { id: 2, name: '即时聊天区', icon: ChatLineRound, unread: 0 },
-  { id: 3, name: '题库区', icon: Document, unread: 0 },
-  { id: 4, name: '学校政策区', icon: Location, unread: 0 },
-  { id: 5, name: '交易专区', icon: ShoppingCart, unread: 0 },
-  { id: 6, name: '课程评价区', icon: Star, unread: 0 },
-  { id: 7, name: '教师评价区', icon: Headset, unread: 0 },
+  { id: 1, name: '发帖区', icon: markRaw(ChatDotSquare), unread: 0 },
+  { id: 2, name: '即时聊天区', icon: markRaw(ChatLineRound), unread: 0 },
+  { id: 3, name: '题库区', icon: markRaw(Document), unread: 0 },
+  { id: 4, name: '学校政策区', icon: markRaw(Location), unread: 0 },
+  { id: 5, name: '交易专区', icon: markRaw(ShoppingCart), unread: 0 },
+  { id: 6, name: '课程评价区', icon: markRaw(Star), unread: 0 },
+  { id: 7, name: '教师评价区', icon: markRaw(Headset), unread: 0 },
 ])
 </script>
 

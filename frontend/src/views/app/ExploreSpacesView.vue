@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, markRaw } from 'vue'
 import { Search, Plus, Location, Present, Star, Monitor, Position } from '@element-plus/icons-vue'
 import HomeHeader from '@/components/HomeHeader.vue'
 
@@ -7,11 +7,11 @@ import HomeHeader from '@/components/HomeHeader.vue'
 const activeSectionId = ref(1)
 
 const sections = ref([
-  { id: 1, name: '学校政策区', icon: Location, unread: 0 },
-  { id: 2, name: '大学生优惠区', icon: Present, unread: 0 },
-  { id: 3, name: '论坛活动区', icon: Star, unread: 0 },
-  { id: 4, name: 'AI探索区', icon: Monitor, unread: 0 },
-  { id: 5, name: '广告位招租', icon: Position, unread: 0 },
+  { id: 1, name: '学校政策区', icon: markRaw(Location), unread: 0 },
+  { id: 2, name: '大学生优惠区', icon: markRaw(Present), unread: 0 },
+  { id: 3, name: '论坛活动区', icon: markRaw(Star), unread: 0 },
+  { id: 4, name: 'AI探索区', icon: markRaw(Monitor), unread: 0 },
+  { id: 5, name: '广告位招租', icon: markRaw(Position), unread: 0 },
 ])
 
 const activeSection = computed(() => {
