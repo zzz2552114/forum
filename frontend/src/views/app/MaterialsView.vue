@@ -137,19 +137,23 @@ watch(activeSubject, () => {
   // but for simplicity frontend computation works since /resources returns raw objects.
 })
 
-// Derive subjects list dynamically from categories
-const dynamicSubjects = computed(() => ['全部', ...categories.value.map(c => c.name)])
+// Derive subjects list dynamically from course spaces
+const courseCategory = computed(() => categories.value.find((c: any) => c.name === '课程' || c.slug === 'course'))
+const courseSpaces = computed(() => {
+  if (!courseCategory.value) return []
+  return spaces.value.filter((s: any) => s.category_id === courseCategory.value.id)
+})
+  
+const dynamicSubjects = computed(() => ['全部', ...courseSpaces.value.map(s => s.name)])
 
 const filteredMaterials = computed(() => {
-  // Final client side filtering by Category (derived from space.category_id)
+  // Final client side filtering by specific Space
   let result = materials.value
 
   if (activeSubject.value !== '全部') {
-    const targetCat = categories.value.find(c => c.name === activeSubject.value)
-    if (targetCat) {
-      // Get all spaces for this category
-      const targetSpaceIds = spaces.value.filter(s => s.category_id === targetCat.id).map(s => s.id)
-      result = result.filter(m => targetSpaceIds.includes(m.space_id))
+    const targetSpace = spaces.value.find((s: any) => s.name === activeSubject.value)
+    if (targetSpace) {
+      result = result.filter((m: any) => m.space_id === targetSpace.id)
     }
   }
   

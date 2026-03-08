@@ -9,8 +9,8 @@ import router from '@/router'
 vi.mock('@/utils/request', () => ({
   default: {
     get: vi.fn(async (url) => {
-      if (url.includes('/categories/')) return [{ id: 1, name: '全部' }, { id: 2, name: '高等数学' }]
-      if (url.includes('/spaces/')) return [{ id: 1, name: '测试空间', category_id: 2 }]
+      if (url.includes('/categories/')) return [{ id: 1, name: '全部' }, { id: 2, name: '课程' }]
+      if (url.includes('/spaces/')) return [{ id: 1, name: '高等数学', category_id: 2 }]
       if (url.includes('/resources/') || url.includes('/search/resources')) return { items: [] }
       return []
     }),
@@ -62,12 +62,12 @@ describe('MaterialsView.vue', () => {
   it('filteredMaterials filters by subject correctly', async () => {
     const mockGet = vi.mocked(request.get)
     mockGet.mockImplementation(async (url: string) => {
-      if (url.includes('/categories/')) return [{ id: 1, name: '全部' }, { id: 2, name: '高等数学' }]
-      if (url.includes('/spaces/')) return [{ id: 1, name: 'Test Space', category_id: 2 }]
+      if (url.includes('/categories/')) return [{ id: 1, name: '全部' }, { id: 2, name: '课程' }]
+      if (url.includes('/spaces/')) return [{ id: 1, name: '高等数学', category_id: 2 }, { id: 99, name: 'Other Space', category_id: 3 }]
       if (url.includes('/resources/') || url.includes('/search/resources')) {
         return {
           items: [
-            { id: 1, title: 'Math Paper', space_id: 1, space_name: 'Test Space', created_at: '2024-01-01' },
+            { id: 1, title: 'Math Paper', space_id: 1, space_name: '高等数学', created_at: '2024-01-01' },
             { id: 2, title: 'Physics Notes', space_id: 99, space_name: 'Other Space', created_at: '2024-01-02' },
           ]
         }
