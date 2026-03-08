@@ -5,6 +5,8 @@ import MegaDrawer from "./MegaDrawer.vue";
 
 const router = useRouter();
 
+defineEmits(["open-auth"]);
+
 const navItems = [
   "进入论坛",
   "资料汇编",
