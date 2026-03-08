@@ -65,6 +65,17 @@ const submitComment = async () => {
     })
     ElMessage.success('评论成功')
     newComment.value = ''
+    
+    // Update local post comment list and increment outside counter
+    if (selectedPost.value) {
+      selectedPost.value.comment_count++
+      // If we want to sync it to the list outside:
+      const p = posts.value.find(x => x.id === selectedPostId.value)
+      if (p) {
+        p.comment_count++
+        p.updated_at = new Date().toISOString()
+      }
+    }
     await fetchComments(selectedPostId.value)
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || '评论失败')
@@ -136,7 +147,10 @@ const fetchSpaces = async () => {
     spaces.value = res || []
     
     if (spaces.value.length > 0 && !activeSpaceId.value) {
-      activeSpaceId.value = spaces.value[0].id
+      // Find the "学校" category to get its spaces
+      const schoolCategory = categories.value.find((c: any) => c.name === '学校')
+      const targetSpaces = spaces.value.filter((s: any) => schoolCategory ? s.category_id === schoolCategory.id : true)
+      activeSpaceId.value = targetSpaces.length > 0 ? targetSpaces[0].id : spaces.value[0].id
     }
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || e.message || '获取空间列表失败')
@@ -245,6 +259,15 @@ const handleAttachmentUpload = async (e: Event) => {
     isUploadingAttachment.value = false
     if (fileInput.value) fileInput.value.value = ''
   }
+}
+
+const handleOpenEditor = () => {
+  if (!authStore.isAuthenticated) {
+    ElMessage.warning('请先登录再发布帖子')
+    router.push('/?showLogin=true')
+    return
+  }
+  showCreatePostEditor.value = true
 }
 
 const submitPost = async () => {
@@ -632,7 +655,7 @@ const sections = ref([
         <button 
           v-if="activeSectionId === 1 && !selectedPostId"
           class="absolute bottom-8 right-8 w-14 h-14 bg-[var(--c-indigo)] text-white rounded-full flex items-center justify-center shadow-user transition-all hover:-translate-y-1 hover:shadow-xl z-20 group"
-          @click="showCreatePostEditor = true"
+          @click="handleOpenEditor"
         >
           <el-icon :size="24"><Plus /></el-icon>
         </button>

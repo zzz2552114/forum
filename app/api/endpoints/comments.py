@@ -55,9 +55,12 @@ async def create_comment(comment_in: CommentCreate, current_user: User = Depends
         author_id=current_user.id
     )
     
+    from tortoise.expressions import F
     post.updated_at = datetime.now(UTC)
-    await post.save(update_fields=["updated_at"])
+    post.comment_count = F("comment_count") + 1
+    await post.save(update_fields=["updated_at", "comment_count"])
     
+    # Needs to fetch real integer value if we want to return it but we don't have to for CommentResponse
     return success_response(CommentResponse(
         id=comment.id,
         content=comment.content,
