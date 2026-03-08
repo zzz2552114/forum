@@ -77,6 +77,7 @@ const showUploadModal = ref(false)
 const uploadForm = ref({
   title: '',
   description: '',
+  school_space_id: null as number | null,
   space_id: null as number | null,
   resource_type: 'notes',
   version_note: 'Initial Upload'
@@ -110,6 +111,7 @@ const submitUpload = async () => {
     await request.post('/resources/', {
       title: uploadForm.value.title,
       description: uploadForm.value.description,
+      school_space_id: uploadForm.value.school_space_id,
       space_id: uploadForm.value.space_id,
       resource_type: uploadForm.value.resource_type,
       file_id: resFile.id,
@@ -119,7 +121,7 @@ const submitUpload = async () => {
     ElMessage.success('上传成功')
     showUploadModal.value = false
     selectedFile.value = null
-    uploadForm.value = { title: '', description: '', space_id: null, resource_type: 'notes', version_note: 'Initial Upload' }
+    uploadForm.value = { title: '', description: '', school_space_id: null, space_id: null, resource_type: 'notes', version_note: 'Initial Upload' }
     fetchMaterials()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || e.response?.data?.detail || e.message || '上传失败')
@@ -137,11 +139,16 @@ watch(activeSubject, () => {
   // but for simplicity frontend computation works since /resources returns raw objects.
 })
 
-// Derive subjects list dynamically from course spaces
 const courseCategory = computed(() => categories.value.find((c: any) => c.name === '课程' || c.slug === 'course'))
 const courseSpaces = computed(() => {
   if (!courseCategory.value) return []
   return spaces.value.filter((s: any) => s.category_id === courseCategory.value.id)
+})
+
+const schoolCategory = computed(() => categories.value.find((c: any) => c.name === '学校' || c.slug === 'school'))
+const schoolSpaces = computed(() => {
+  if (!schoolCategory.value) return []
+  return spaces.value.filter((s: any) => s.category_id === schoolCategory.value.id)
 })
   
 const dynamicSubjects = computed(() => ['全部', ...courseSpaces.value.map(s => s.name)])
@@ -363,12 +370,20 @@ const clearFilters = () => {
         
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属空间 <span class="text-red-500">*</span></label>
-            <el-select v-model="uploadForm.space_id" placeholder="选择空间" class="w-full">
-              <el-option v-for="s in spaces" :key="s.id" :label="s.name" :value="s.id" />
+            <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属学校 <span class="text-[var(--c-navy)]/40 text-xs font-normal ml-1">可选</span></label>
+            <el-select v-model="uploadForm.school_space_id" placeholder="选择学校" class="w-full" clearable>
+              <el-option v-for="s in schoolSpaces" :key="s.id" :label="s.name" :value="s.id" />
             </el-select>
           </div>
           <div>
+            <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属课程 <span class="text-red-500">*</span></label>
+            <el-select v-model="uploadForm.space_id" placeholder="选择课程" class="w-full">
+              <el-option v-for="s in courseSpaces" :key="s.id" :label="s.name" :value="s.id" />
+            </el-select>
+          </div>
+        </div>
+
+        <div>
              <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">资料类别</label>
              <el-select v-model="uploadForm.resource_type" placeholder="类别" class="w-full">
                <el-option label="往年试卷" value="past_exam" />
@@ -376,7 +391,6 @@ const clearFilters = () => {
                <el-option label="习题与答案" value="solution" />
                <el-option label="其他" value="other" />
              </el-select>
-          </div>
         </div>
         
         <!-- File Input -->

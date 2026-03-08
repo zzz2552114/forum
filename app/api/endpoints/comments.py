@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
+from datetime import datetime, UTC
 from app.schemas.forum import CommentCreate, CommentResponse
 from app.schemas.common import ResponseBase, PaginationData
 from app.core.responses import success_response, paginate_response
@@ -53,6 +54,9 @@ async def create_comment(comment_in: CommentCreate, current_user: User = Depends
         parent_id=comment_in.parent_id,
         author_id=current_user.id
     )
+    
+    post.updated_at = datetime.now(UTC)
+    await post.save(update_fields=["updated_at"])
     
     return success_response(CommentResponse(
         id=comment.id,

@@ -14,6 +14,7 @@ class ResourceBase(BaseModel):
     title: str
     description: Optional[str] = None
     resource_type: Optional[str] = None
+    school_space_id: Optional[int] = None
     space_id: int
 
 class ResourceCreate(ResourceBase):

@@ -14,6 +14,7 @@ class Resource(models.Model):
     
     uploader = fields.ForeignKeyField("models.User", related_name="resources")
     post = fields.ForeignKeyField("models.Post", related_name="resources", null=True)
+    school_space = fields.ForeignKeyField("models.Space", related_name="school_resources", null=True)
     space = fields.ForeignKeyField("models.Space", related_name="resources", null=True)
     
     download_count = fields.IntField(default=0)

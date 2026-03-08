@@ -115,12 +115,14 @@ const goBackToPosts = () => {
   isBookmarked.value = false
 }
 
+const allowedCategories = ['学校', '课程', '休闲娱乐', '专业', '探索']
+
 const fetchCategories = async () => {
   try {
     const res: any = await request.get('/categories/')
-    categories.value = res || []
+    categories.value = (res || []).filter((c: any) => allowedCategories.includes(c.name))
     if (categories.value.length > 0) {
-      expandedCategories.value = [categories.value[0].id]
+      expandedCategories.value = categories.value.map(c => c.id) // Default expand all allowed categories
     }
   } catch (e: any) {
     console.error('Failed to fetch categories', e)
@@ -150,6 +152,19 @@ const fetchPostsForSpace = async () => {
     console.error('Failed to fetch posts', e)
   }
 }
+
+const postSortMethod = ref('created_at')
+const sortedPosts = computed(() => {
+  const sorted = [...posts.value]
+  if (postSortMethod.value === 'created_at') {
+    sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  } else if (postSortMethod.value === 'updated_at') {
+    sorted.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  } else if (postSortMethod.value === 'like_count') {
+    sorted.sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
+  }
+  return sorted
+})
 
 watch(activeSpaceId, () => {
   goBackToPosts()
@@ -501,7 +516,7 @@ const sections = ref([
                   </div>
                   
                   <button class="flex items-center gap-2 text-[var(--c-navy)]/50 hover:text-[var(--c-indigo)] font-medium transition-colors" @click="document.getElementById('comments-section')?.scrollIntoView({ behavior: 'smooth' })">
-                    <el-icon class="text-xl"><ChatDotRound /></el-icon> {{ selectedPost.comment_count || 0 }} 评论
+                    <el-icon class="text-xl"><ChatDotRound /></el-icon> {{ comments.length }} 评论
                   </button>
 
                   <button class="flex items-center gap-2 hover:text-orange-500 font-medium transition-colors ml-auto" :class="isBookmarked ? 'text-orange-500' : 'text-[var(--c-navy)]/50'" @click="toggleBookmark">
@@ -552,14 +567,23 @@ const sections = ref([
           </div>
 
           <!-- List State (for posts) -->
-          <div v-else class="max-w-[800px] mx-auto space-y-4 pb-24">
-            <template v-if="posts.length > 0">
-              <div
-                v-for="post in posts"
-                :key="post.id"
-                class="bg-white p-5 rounded-2xl shadow-sm border border-[var(--c-navy)]/5 hover:border-[var(--c-gold)]/30 transition-colors cursor-pointer group"
-                @click="fetchPostDetail(post.id)"
-              >
+          <div v-else class="max-w-[800px] mx-auto pb-24">
+            <template v-if="sortedPosts.length > 0">
+              <div class="flex items-center justify-between mb-4 px-1">
+                <span class="text-sm text-[var(--c-navy)]/50 font-medium">共 {{ sortedPosts.length }} 篇帖子</span>
+                <el-select v-model="postSortMethod" size="small" class="w-28 shadow-sm">
+                  <el-option label="最新发布" value="created_at" />
+                  <el-option label="最新回复" value="updated_at" />
+                  <el-option label="最多点赞" value="like_count" />
+                </el-select>
+              </div>
+              <div class="space-y-4">
+                <div
+                  v-for="post in sortedPosts"
+                  :key="post.id"
+                  class="bg-white p-5 rounded-2xl shadow-sm border border-[var(--c-navy)]/5 hover:border-[var(--c-gold)]/30 transition-colors cursor-pointer group"
+                  @click="fetchPostDetail(post.id)"
+                >
                 <div class="flex items-center gap-x-3 mb-3">
                   <div
                     class="w-10 h-10 rounded-full bg-[var(--c-fog)] overflow-hidden shrink-0 flex items-center justify-center font-bold text-[var(--c-navy)]"
@@ -594,6 +618,7 @@ const sections = ref([
                   <span class="flex items-center gap-1"><el-icon><ChatDotRound /></el-icon>{{ post.comment_count || 0 }}</span>
                 </div>
               </div>
+              </div> <!-- Close space-y-4 -->
             </template>
             <template v-else>
               <div class="text-center text-[var(--c-navy)]/40 mt-10">
