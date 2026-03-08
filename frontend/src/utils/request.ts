@@ -46,7 +46,7 @@ service.interceptors.response.use(
     // to avoid double-popup (interceptor + catch block both showing toast).
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      window.location.href = '/?showLogin=true'
     }
     return Promise.reject(error)
   }

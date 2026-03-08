@@ -29,7 +29,15 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import("@/views/app/MaterialsView.vue"),
     meta: { title: "资料汇编", requiresAuth: false },
   },
-  // Keep the old routes around for reference or fallback if needed
+  // Auth fallback routes if not handled purely by modal. To avoid 404.
+  {
+    path: "/login",
+    component: () => import("@/views/public/HomeView.vue"),
+  },
+  {
+    path: "/register",
+    component: () => import("@/views/public/HomeView.vue"),
+  },
   {
     path: "/app",
     component: AppLayout,
@@ -46,6 +54,18 @@ const routes: Array<RouteRecordRaw> = [
         name: "PostEditor",
         component: () => import("@/views/app/PostEditorView.vue"),
         meta: { title: "发布帖子" },
+      },
+      {
+        path: "/posts/:id",
+        name: "PostDetail",
+        component: () => import("@/views/public/PostDetailView.vue"),
+        meta: { title: "帖子详情" },
+      },
+      {
+        path: "/explore",
+        name: "Explore",
+        component: () => import("@/views/app/ExploreSpacesView.vue"),
+        meta: { title: "无限探索" },
       },
       {
         path: "/me/overview",
@@ -84,7 +104,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return { path: "/login", query: { redirect: to.fullPath } };
+    return { path: "/", query: { redirect: to.fullPath, showLogin: "true" } };
   }
   // return undefined = allow navigation
 });

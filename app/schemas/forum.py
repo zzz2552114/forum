@@ -17,6 +17,8 @@ class PostResponse(PostBase):
     author_id: int
     view_count: int
     like_count: int
+    comment_count: int
+    bookmark_count: int
     created_at: datetime
     updated_at: datetime
     tags: list[TagResponse] = []

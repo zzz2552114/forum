@@ -1,32 +1,29 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Document, Download, CollectionTag, Search } from '@element-plus/icons-vue'
 import HomeHeader from '@/components/HomeHeader.vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
+import { useRouter } from 'vue-router'
+
+const authStore = useAuthStore()
+const router = useRouter()
 
 const searchQuery = ref('')
 const activeSubject = ref('全部')
 
-const subjects = [
-  '全部',
-  '高等数学',
-  '线性代数',
-  '数学分析',
-  '概率论与数理统计',
-  '离散数学',
-  '大学物理',
-]
-
+// Fetch categories from backend to act as "Subjects/Modules"
+const categories = ref<any[]>([])
+const spaces = ref<any[]>([]) 
 const materials = ref<any[]>([])
-const spaces = ref<any[]>([]) // Used for selecting space when uploading resource
 
-const fetchMaterials = async () => {
+const fetchCategories = async () => {
   try {
-    const res: any = await request.get('/resources/')
-    materials.value = res.items || []
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || e.message || '获取资料列表失败')
+    const res: any = await request.get('/categories/')
+    categories.value = res || []
+  } catch (e) {
+    console.error('Failed to fetch categories', e)
   }
 }
 
@@ -39,9 +36,40 @@ const fetchSpaces = async () => {
   }
 }
 
-onMounted(() => {
+const handleUploadClick = () => {
+  if (!authStore.isAuthenticated) {
+    ElMessage.warning('请先登录再分享资料')
+    router.push('/?showLogin=true')
+    return
+  }
+  showUploadModal.value = true
+}
+
+const fetchMaterials = async () => {
+  try {
+    const params: any = {
+      page: 1,
+      page_size: 50
+    }
+    
+    // Attempt standard /resources/ or if searching use /search/resources
+    let endpoint = '/resources/'
+    if (searchQuery.value) {
+      endpoint = '/search/resources'
+      params.keyword = searchQuery.value
+    }
+
+    const res: any = await request.get(endpoint, { params })
+    materials.value = res.items || []
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || e.message || '获取资料列表失败')
+  }
+}
+
+onMounted(async () => {
+  await fetchCategories()
+  await fetchSpaces()
   fetchMaterials()
-  fetchSpaces()
 })
 
 // Upload Modal State
@@ -100,23 +128,38 @@ const submitUpload = async () => {
   }
 }
 
+const handleSearch = () => {
+  fetchMaterials()
+}
+
+watch(activeSubject, () => {
+  // If activeSubject is a category name and not '全部', we could filter spaces,
+  // but for simplicity frontend computation works since /resources returns raw objects.
+})
+
+// Derive subjects list dynamically from categories
+const dynamicSubjects = computed(() => ['全部', ...categories.value.map(c => c.name)])
+
 const filteredMaterials = computed(() => {
-  const filtered = materials.value.filter((m: any) => {
-    const matchSubject =
-      activeSubject.value === "全部" || m.subject === activeSubject.value
-    const matchSearch =
-      !searchQuery.value ||
-      m.title?.includes(searchQuery.value) ||
-      m.school?.includes(searchQuery.value) ||
-      m.subject?.includes(searchQuery.value)
-    return matchSubject && matchSearch
-  })
-  return filtered.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  // Final client side filtering by Category (derived from space.category_id)
+  let result = materials.value
+
+  if (activeSubject.value !== '全部') {
+    const targetCat = categories.value.find(c => c.name === activeSubject.value)
+    if (targetCat) {
+      // Get all spaces for this category
+      const targetSpaceIds = spaces.value.filter(s => s.category_id === targetCat.id).map(s => s.id)
+      result = result.filter(m => targetSpaceIds.includes(m.space_id))
+    }
+  }
+  
+  return result.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 })
 
 const clearFilters = () => {
   searchQuery.value = ''
   activeSubject.value = '全部'
+  fetchMaterials()
 }
 </script>
 
@@ -143,12 +186,14 @@ const clearFilters = () => {
             /></el-icon>
             <input
               v-model="searchQuery"
+              @keyup.enter="handleSearch"
               type="text"
-              placeholder="搜索高校、科目、真题..."
+              placeholder="搜索资料名称、摘要或文件名..."
               class="w-full h-14 bg-[var(--c-fog)] rounded-[16px] pl-12 pr-4 text-[var(--c-navy)] text-lg focus:outline-none focus:ring-2 focus:ring-[var(--c-gold)] focus:bg-white transition-all border border-transparent shadow-inner"
             />
           </div>
           <button
+            @click="handleSearch"
             class="h-14 px-8 bg-[var(--c-indigo)] text-white rounded-[16px] font-medium text-lg hover:bg-opacity-90 shadow-lg shadow-[var(--c-indigo)]/20 transition-all shrink-0"
           >
             搜索库
@@ -156,7 +201,7 @@ const clearFilters = () => {
           
           <!-- Upload Button -->
           <button
-            @click="showUploadModal = true"
+            @click="handleUploadClick"
             class="h-14 px-6 bg-[var(--c-gold)] text-white rounded-[16px] font-medium text-lg hover:bg-opacity-90 shadow-lg shadow-[var(--c-gold)]/20 transition-all shrink-0 flex items-center gap-x-2"
           >
             <el-icon><Plus /></el-icon> 上传资料
@@ -195,7 +240,7 @@ const clearFilters = () => {
           </div>
           <div class="space-y-1">
             <div
-              v-for="sub in subjects"
+              v-for="sub in dynamicSubjects"
               :key="sub"
               class="px-4 py-3 rounded-[12px] cursor-pointer font-medium transition-all group flex items-center justify-between"
               :class="
@@ -264,10 +309,10 @@ const clearFilters = () => {
                       ><span
                         class="w-1.5 h-1.5 rounded-full bg-[var(--c-gold)] opacity-80 inline-block"
                       ></span>
-                      {{ mat.school }}</span
+                      {{ mat.space_name || spaces.find(s => s.id === mat.space_id)?.name || '未知空间' }}</span
                     >
-                    <span>{{ mat.subject }}</span>
-                    <span>最后更新：{{ mat.updatedAt }}</span>
+                    <span>{{ mat.resource_type === 'past_exam' ? '往年试卷' : mat.resource_type === 'notes' ? '课堂笔记' : mat.resource_type === 'solution' ? '习题答案' : '其他资料' }}</span>
+                    <span>最后更新：{{ new Date(mat.created_at).toLocaleDateString() }}</span>
                   </div>
                 </div>
               </div>

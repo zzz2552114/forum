@@ -8,7 +8,12 @@ import router from '@/router'
 // Mock request module
 vi.mock('@/utils/request', () => ({
   default: {
-    get: vi.fn(),
+    get: vi.fn(async (url) => {
+      if (url.includes('/categories/')) return [{ id: 1, name: '全部' }, { id: 2, name: '高等数学' }]
+      if (url.includes('/spaces/')) return [{ id: 1, name: '测试空间', category_id: 2 }]
+      if (url.includes('/resources/') || url.includes('/search/resources')) return { items: [] }
+      return []
+    }),
     post: vi.fn(),
     put: vi.fn(),
   }
@@ -35,22 +40,20 @@ describe('MaterialsView.vue', () => {
 
   it('calls GET /resources and GET /spaces on mount', async () => {
     const mockGet = vi.mocked(request.get)
-    mockGet.mockResolvedValue({ items: [] })
     
     mountView()
-    await vi.dynamicImportSettled()
+    await new Promise(resolve => setTimeout(resolve, 10))
     
-    expect(mockGet).toHaveBeenCalledWith('/resources/')
+    expect(mockGet).toHaveBeenCalledWith('/resources/', expect.anything())
     expect(mockGet).toHaveBeenCalledWith('/spaces/')
   })
 
   it('renders the search bar and subject filter', async () => {
     const mockGet = vi.mocked(request.get)
-    mockGet.mockResolvedValue({ items: [] })
     
     const wrapper = mountView()
     expect(wrapper.exists()).toBe(true)
-    expect(wrapper.html()).toContain('搜索高校')
+    expect(wrapper.html()).toContain('搜索资料')
     expect(wrapper.html()).toContain('上传资料')
     expect(wrapper.html()).toContain('全部')
     expect(wrapper.html()).toContain('高等数学')
@@ -59,11 +62,13 @@ describe('MaterialsView.vue', () => {
   it('filteredMaterials filters by subject correctly', async () => {
     const mockGet = vi.mocked(request.get)
     mockGet.mockImplementation(async (url: string) => {
-      if (url === '/resources/') {
+      if (url.includes('/categories/')) return [{ id: 1, name: '全部' }, { id: 2, name: '高等数学' }]
+      if (url.includes('/spaces/')) return [{ id: 1, name: 'Test Space', category_id: 2 }]
+      if (url.includes('/resources/') || url.includes('/search/resources')) {
         return {
           items: [
-            { id: 1, title: 'Math Paper', subject: '高等数学', school: '清华', created_at: '2024-01-01' },
-            { id: 2, title: 'Physics Notes', subject: '大学物理', school: '北大', created_at: '2024-01-02' },
+            { id: 1, title: 'Math Paper', space_id: 1, space_name: 'Test Space', created_at: '2024-01-01' },
+            { id: 2, title: 'Physics Notes', space_id: 99, space_name: 'Other Space', created_at: '2024-01-02' },
           ]
         }
       }
@@ -71,7 +76,7 @@ describe('MaterialsView.vue', () => {
     })
     
     const wrapper = mountView()
-    await vi.dynamicImportSettled()
+    await new Promise(resolve => setTimeout(resolve, 10))
     
     const vm = wrapper.vm as any
     // Default is '全部', should show all

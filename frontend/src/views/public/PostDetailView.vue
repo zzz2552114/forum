@@ -57,7 +57,7 @@
       <!-- Interaction Bar -->
       <div class="flex items-center gap-6 pt-4 border-t border-slate-100">
         <div class="flex items-center bg-slate-50 rounded-full border border-slate-200 overflow-hidden">
-          <button class="px-4 py-2 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2 font-medium" :class="{'text-blue-600': false}" @click="toggleLike">
+          <button class="px-4 py-2 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2 font-medium" :class="{'text-blue-600': isLiked}" @click="toggleLike">
             <el-icon class="text-lg"><CaretTop /></el-icon> {{ post.like_count || 0 }}
           </button>
           <div class="w-px h-6 bg-slate-200"></div>
@@ -70,8 +70,8 @@
           <el-icon class="text-xl"><ChatDotRound /></el-icon> {{ post.comment_count || 0 }} 评论
         </button>
 
-        <button class="flex items-center gap-2 text-slate-500 hover:text-orange-500 font-medium transition-colors ml-auto" @click="toggleBookmark">
-          <el-icon class="text-xl"><Star /></el-icon> 收藏
+        <button class="flex items-center gap-2 hover:text-orange-500 font-medium transition-colors ml-auto" :class="isBookmarked ? 'text-orange-500' : 'text-slate-500'" @click="toggleBookmark">
+          <el-icon class="text-xl"><Star v-if="!isBookmarked" /><StarFilled v-else /></el-icon> {{ isBookmarked ? '已收藏' : '收藏' }}
         </button>
       </div>
     </el-card>
@@ -193,12 +193,38 @@ const submitComment = async () => {
   }
 }
 
-const toggleLike = () => {
-  ElMessage.info('点赞功能开发中')
+const isLiked = ref(false)
+const isBookmarked = ref(false)
+
+const toggleLike = async () => {
+  if (!authStore.isAuthenticated) return ElMessage.warning('请先登录再操作')
+  try {
+    if (isLiked.value) {
+      await request.delete(`/posts/${postId.value}/likes/me`)
+      post.value.like_count--
+    } else {
+      await request.put(`/posts/${postId.value}/likes/me`)
+      post.value.like_count++
+    }
+    isLiked.value = !isLiked.value
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || '操作失败')
+  }
 }
 
-const toggleBookmark = () => {
-  ElMessage.info('收藏功能开发中')
+const toggleBookmark = async () => {
+  if (!authStore.isAuthenticated) return ElMessage.warning('请先登录再操作')
+  try {
+    if (isBookmarked.value) {
+      await request.delete(`/posts/${postId.value}/bookmarks/me`)
+    } else {
+      await request.put(`/posts/${postId.value}/bookmarks/me`)
+    }
+    isBookmarked.value = !isBookmarked.value
+    ElMessage.success(isBookmarked.value ? '已收藏' : '已取消收藏')
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || '操作失败')
+  }
 }
 
 const scrollToComments = () => {

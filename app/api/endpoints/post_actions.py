@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Any
 
 from app.models.user import User
-from app.models.forum import Post
+from app.models.forum import Post, PostLike
 from app.core.responses import success_response
 from app.models.enums import UserRole
 from app.models.interactions import PostBookmark, PostSubscription
@@ -37,6 +37,35 @@ async def remove_bookmark(
         from tortoise.expressions import F
         await Post.filter(id=post_id).update(bookmark_count=F("bookmark_count") - 1)
     return success_response({"message": "Bookmark removed"})
+
+@router.put("/{post_id}/likes/me")
+async def like_post(
+    post_id: int,
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    post = await Post.get_or_none(id=post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+        
+    obj, created = await PostLike.get_or_create(user_id=current_user.id, post_id=post_id)
+    if created:
+        from tortoise.expressions import F
+        # Use existing 'view_count' or default property syntax if 'like_count' doesn't exist,
+        # but the prompt implies it exists. We'll update like_count.
+        await Post.filter(id=post.id).update(like_count=F("like_count") + 1)
+        
+    return success_response({"liked": True, "created": created})
+
+@router.delete("/{post_id}/likes/me")
+async def unlike_post(
+    post_id: int,
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    deleted = await PostLike.filter(user_id=current_user.id, post_id=post_id).delete()
+    if deleted > 0:
+        from tortoise.expressions import F
+        await Post.filter(id=post_id).update(like_count=F("like_count") - 1)
+    return success_response({"message": "Like removed"})
 
 @router.put("/{post_id}/subscriptions/me")
 async def subscribe_post(

@@ -1,25 +1,41 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { Plus, ChatDotSquare, Document, Trophy, Setting } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { Plus, ChatDotSquare, Document, ChatLineRound, Location, ShoppingCart, Headset, Star } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+import HomeHeader from '@/components/HomeHeader.vue'
+
+const router = useRouter()
 
 // State
+const categories = ref<any[]>([])
 const spaces = ref<any[]>([])
 const activeSpaceId = ref<number | null>(null)
 const activeSectionId = ref(1)
+const expandedCategories = ref<number[]>([])
 
 const isJoinLoading = ref(false)
+const posts = ref<any[]>([])
+
+const fetchCategories = async () => {
+  try {
+    const res: any = await request.get('/categories/')
+    categories.value = res || []
+    if (categories.value.length > 0) {
+      expandedCategories.value = [categories.value[0].id]
+    }
+  } catch (e: any) {
+    console.error('Failed to fetch categories', e)
+  }
+}
 
 // Fetch all spaces
 const fetchSpaces = async () => {
   try {
     const res: any = await request.get('/spaces/')
-    // Temporarily showing all spaces, ideally we show "joined" spaces here
-    // but without member endpoint, we show all available for now
     spaces.value = res || []
     
-    // Set first active if not selected
     if (spaces.value.length > 0 && !activeSpaceId.value) {
       activeSpaceId.value = spaces.value[0].id
     }
@@ -28,8 +44,29 @@ const fetchSpaces = async () => {
   }
 }
 
+const fetchPostsForSpace = async () => {
+  if (!activeSpaceId.value) return;
+  try {
+    const res: any = await request.get(`/posts/`, { params: { space_id: activeSpaceId.value } });
+    posts.value = res.items || [];
+  } catch(e) {
+    console.error('Failed to fetch posts', e)
+  }
+}
+
+watch(activeSpaceId, () => {
+  if (activeSectionId.value === 1) fetchPostsForSpace()
+})
+
+watch(activeSectionId, () => {
+  if (activeSectionId.value === 1) fetchPostsForSpace()
+})
+
 onMounted(() => {
-  fetchSpaces()
+  fetchCategories()
+  fetchSpaces().then(() => {
+    if (activeSectionId.value === 1) fetchPostsForSpace()
+  })
 })
 
 const handleJoinSpace = async () => {
@@ -45,6 +82,14 @@ const handleJoinSpace = async () => {
   }
 }
 
+const toggleCategory = (id: number) => {
+  if (expandedCategories.value.includes(id)) {
+    expandedCategories.value = expandedCategories.value.filter(cid => cid !== id)
+  } else {
+    expandedCategories.value.push(id)
+  }
+}
+
 const activeSpace = computed(() => {
   return spaces.value.find((s: any) => s.id === activeSpaceId.value)
 })
@@ -53,13 +98,15 @@ const activeSection = computed(() => {
   return sections.value.find((s: any) => s.id === activeSectionId.value)
 })
 
-// Mock Sections
 const sections = ref([
-  { id: 1, name: '课前讨论', icon: ChatDotSquare, unread: 3 },
-  { id: 2, name: '期末资料', icon: Document, unread: 0 },
-  { id: 3, name: '成绩评议', icon: Trophy, unread: 12 },
+  { id: 1, name: '发帖区', icon: ChatDotSquare, unread: 0 },
+  { id: 2, name: '即时聊天区', icon: ChatLineRound, unread: 0 },
+  { id: 3, name: '题库区', icon: Document, unread: 0 },
+  { id: 4, name: '学校政策区', icon: Location, unread: 0 },
+  { id: 5, name: '交易专区', icon: ShoppingCart, unread: 0 },
+  { id: 6, name: '课程评价区', icon: Star, unread: 0 },
+  { id: 7, name: '教师评价区', icon: Headset, unread: 0 },
 ])
-const isCreateModalOpen = ref(false)
 </script>
 
 <template>
@@ -80,61 +127,76 @@ const isCreateModalOpen = ref(false)
           已加入空间
         </div>
 
-        <div class="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-2">
-          <div
-            v-for="space in spaces"
-            :key="space.id"
-            class="group flex items-center gap-x-3 p-2 rounded-[16px] cursor-pointer transition-all relative"
-            :class="activeSpaceId === space.id ? 'bg-white/10' : 'hover:bg-white/5'"
-            @click="activeSpaceId = space.id"
-          >
-            <!-- Active Indicator Line -->
-            <div
-              class="absolute left-[-12px] w-1 bg-white rounded-r-md transition-all duration-300"
-              :class="
-                activeSpaceId === space.id
-                  ? 'h-8 opacity-100'
-                  : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-50'
-              "
-            ></div>
-
-            <div
-              class="w-12 h-12 shrink-0 rounded-[14px] flex items-center justify-center text-white font-bold text-lg shadow-md transition-transform"
-              :class="[
-                space.color,
-                activeSpaceId === space.id
-                  ? 'rounded-[10px]'
-                  : 'group-hover:rounded-[10px]',
-              ]"
+        <div class="flex-1 overflow-y-auto custom-scrollbar pt-2 space-y-4">
+          <div v-for="category in categories" :key="category.id" class="mb-2">
+            <!-- Category Title (Drawer Header) -->
+            <div 
+              class="px-5 py-2 flex items-center justify-between text-white/50 text-xs font-bold tracking-wider cursor-pointer hover:text-white/80 transition-colors"
+              @click="toggleCategory(category.id)"
             >
-              {{ space.name.charAt(0) }}
+              <span>{{ category.name }}</span>
+              <span>{{ expandedCategories.includes(category.id) ? '▼' : '▶' }}</span>
             </div>
-
-            <div class="hidden sm:block flex-1 min-w-0">
+            
+            <!-- Category Spaces List -->
+            <div v-show="expandedCategories.includes(category.id)" class="px-3 space-y-2 mt-1">
               <div
-                class="text-white/90 font-medium truncate text-sm"
-                :class="
-                  activeSpaceId === space.id ? 'text-white font-bold' : ''
-                "
+                v-for="space in spaces.filter(s => s.category_id === category.id)"
+                :key="space.id"
+                class="group flex items-center gap-x-3 p-2 rounded-[16px] cursor-pointer transition-all relative"
+                :class="activeSpaceId === space.id ? 'bg-white/10' : 'hover:bg-white/5'"
+                @click="activeSpaceId = space.id"
               >
-                {{ space.name }}
+                <!-- Active Indicator Line -->
+                <div
+                  class="absolute left-[-12px] w-1 bg-white rounded-r-md transition-all duration-300"
+                  :class="
+                    activeSpaceId === space.id
+                      ? 'h-8 opacity-100'
+                      : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-50'
+                  "
+                ></div>
+
+                <div
+                  class="w-12 h-12 shrink-0 rounded-[14px] flex items-center justify-center text-white font-bold text-lg shadow-md transition-transform bg-[var(--c-indigo)]"
+                  :class="[
+                    activeSpaceId === space.id
+                      ? 'rounded-[10px]'
+                      : 'group-hover:rounded-[10px]',
+                  ]"
+                >
+                  {{ space.name.charAt(0) }}
+                </div>
+
+                <div class="hidden sm:block flex-1 min-w-0">
+                  <div
+                    class="text-white/90 font-medium truncate text-sm"
+                    :class="
+                      activeSpaceId === space.id ? 'text-white font-bold' : ''
+                    "
+                  >
+                    {{ space.name }}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Add Space Button -->
-          <div
-            class="group flex items-center gap-x-3 p-2 rounded-[16px] cursor-pointer transition-all mt-4 hover:bg-white/5"
-          >
+          <div class="px-3 pb-6">
             <div
-              class="w-12 h-12 shrink-0 rounded-[14px] bg-white/5 border border-white/10 flex items-center justify-center text-green-500 font-bold text-xl group-hover:bg-green-500 group-hover:text-white transition-all"
+              class="group flex items-center gap-x-3 p-2 rounded-[16px] cursor-pointer transition-all hover:bg-white/5"
             >
-              +
-            </div>
-            <div
-              class="hidden sm:block text-green-500 font-medium group-hover:text-white transition-colors"
-            >
-              探索新空间
+              <div
+                class="w-12 h-12 shrink-0 rounded-[14px] bg-white/5 border border-white/10 flex items-center justify-center text-green-500 font-bold text-xl group-hover:bg-green-500 group-hover:text-white transition-all"
+              >
+                +
+              </div>
+              <div
+                class="hidden sm:block text-green-500 font-medium group-hover:text-white transition-colors"
+              >
+                探索新空间
+              </div>
             </div>
           </div>
         </div>
@@ -214,44 +276,60 @@ const isCreateModalOpen = ref(false)
             <p class="text-sm mt-1">成为第一个在这里发布的人吧！</p>
           </div>
 
-          <!-- List State Mockup (for posts) -->
+          <!-- List State (for posts) -->
           <div v-else class="max-w-[800px] mx-auto space-y-4 pb-24">
-            <div
-              v-for="i in 5"
-              :key="i"
-              class="bg-white p-5 rounded-2xl shadow-sm border border-[var(--c-navy)]/5 hover:border-[var(--c-gold)]/30 transition-colors cursor-pointer group"
-            >
-              <div class="flex items-center gap-x-3 mb-3">
-                <div
-                  class="w-10 h-10 rounded-full bg-[var(--c-fog)] overflow-hidden shrink-0"
-                ></div>
-                <div>
-                  <div class="font-medium text-[var(--c-navy)] text-sm">
-                    用户 {{ i * 11 }}
+            <template v-if="posts.length > 0">
+              <div
+                v-for="post in posts"
+                :key="post.id"
+                class="bg-white p-5 rounded-2xl shadow-sm border border-[var(--c-navy)]/5 hover:border-[var(--c-gold)]/30 transition-colors cursor-pointer group"
+                @click="router.push(`/posts/${post.id}`)"
+              >
+                <div class="flex items-center gap-x-3 mb-3">
+                  <div
+                    class="w-10 h-10 rounded-full bg-[var(--c-fog)] overflow-hidden shrink-0 flex items-center justify-center font-bold text-[var(--c-navy)]"
+                  >
+                    {{ post.author_id }}
                   </div>
-                  <div class="text-xs text-[var(--c-navy)]/50">
-                    {{ i }} 小时前
+                  <div>
+                    <div class="font-medium text-[var(--c-navy)] text-sm">
+                      用户 {{ post.author_id }}
+                    </div>
+                    <div class="text-xs text-[var(--c-navy)]/50">
+                      {{ new Date(post.created_at).toLocaleString() }}
+                    </div>
                   </div>
                 </div>
+                <h3
+                  class="font-medium text-[var(--c-navy)] text-lg mb-2 group-hover:text-[var(--c-indigo)]"
+                >
+                  {{ post.title }}
+                </h3>
+                <p
+                  class="text-[var(--c-navy)]/70 text-sm line-clamp-2 leading-relaxed"
+                >
+                  {{ post.summary || post.content }}
+                </p>
+                <div class="mt-4 flex gap-x-4 text-xs text-[var(--c-navy)]/40 font-medium">
+                  <span>{{ post.view_count || 0 }} 浏览</span>
+                  <span>{{ post.like_count || 0 }} 赞</span>
+                  <span>{{ post.comment_count || 0 }} 评论</span>
+                </div>
               </div>
-              <h3
-                class="font-medium text-[var(--c-navy)] text-lg mb-2 group-hover:text-[var(--c-indigo)]"
-              >
-                这是一条测试帖子的标题 - 关于期末考试的复习建议
-              </h3>
-              <p
-                class="text-[var(--c-navy)]/70 text-sm line-clamp-2 leading-relaxed"
-              >
-                这里是正文这里是正文这里是正文这里是正文这里是正文。由于是模拟的数据所以随便写一点文字占个位。希望大家都能考个好成绩！
-              </p>
-            </div>
+            </template>
+            <template v-else>
+              <div class="text-center text-[var(--c-navy)]/40 mt-10">
+                暂无帖子
+              </div>
+            </template>
           </div>
         </div>
 
         <!-- Floating Action Button -->
         <button 
+          v-if="activeSectionId === 1"
           class="absolute bottom-8 right-8 w-14 h-14 bg-[var(--c-indigo)] text-white rounded-full flex items-center justify-center shadow-user transition-all hover:-translate-y-1 hover:shadow-xl z-20 group"
-          @click="isCreateModalOpen = true"
+          @click="router.push({ path: '/posts/new', query: { space_id: activeSpaceId } })"
         >
           <el-icon :size="24"><Plus /></el-icon>
         </button>

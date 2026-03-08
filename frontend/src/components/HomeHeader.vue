@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Bell, Setting, UserFilled, Plus, FolderAdd } from '@element-plus/icons-vue'
+import { Search, Bell, Setting, UserFilled, Plus } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
@@ -23,15 +23,10 @@ const handleLogout = () => {
 }
 
 // Dialog States
-const showCatDialog = ref(false)
 const showSpaceDialog = ref(false)
-
-const catForm = ref({ name: '', slug: '', description: '' })
 const spaceForm = ref({ name: '', slug: '', description: '', type: 'course', category_id: null as number | null })
 
 const categories = ref<any[]>([])
-
-const openCatDialog = () => { showCatDialog.value = true; catForm.value = { name: '', slug: '', description: '' } }
 const openSpaceDialog = async () => {
   showSpaceDialog.value = true
   spaceForm.value = { name: '', slug: '', description: '', type: 'course', category_id: null }
@@ -41,17 +36,6 @@ const openSpaceDialog = async () => {
     categories.value = res || []
   } catch (e) {
     console.error(e)
-  }
-}
-
-const submitCategory = async () => {
-  if (!catForm.value.name) return ElMessage.warning('请输入模块名称')
-  try {
-    await request.post('/categories/', catForm.value)
-    ElMessage.success('模块创建成功')
-    showCatDialog.value = false
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || e.response?.data?.detail || e.message || '创建失败')
   }
 }
 
@@ -114,9 +98,6 @@ const submitSpace = async () => {
         </div>
         <template #dropdown>
           <el-dropdown-menu class="min-w-[160px]">
-            <el-dropdown-item class="py-2.5" @click="openCatDialog">
-              <el-icon><FolderAdd /></el-icon> 创建分类模块
-            </el-dropdown-item>
             <el-dropdown-item class="py-2.5" @click="openSpaceDialog">
               <el-icon><Plus /></el-icon> 创建专属空间
             </el-dropdown-item>
@@ -128,30 +109,6 @@ const submitSpace = async () => {
       </el-dropdown>
     </div>
   </header>
-
-  <!-- Create Category Dialog -->
-  <el-dialog v-model="showCatDialog" title="创建新模块" width="400px" style="border-radius: var(--radius-card)">
-    <div class="space-y-4 pt-2">
-      <div>
-        <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">模块名称 <span class="text-red-500">*</span></label>
-        <input v-model="catForm.name" placeholder="如：课程学习" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-[var(--c-gold)] outline-none" />
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">标识 (Slug)</label>
-        <input v-model="catForm.slug" placeholder="course-study" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-[var(--c-gold)] outline-none" />
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">简介</label>
-        <textarea v-model="catForm.description" placeholder="一句话描述这个模块" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-[var(--c-gold)] outline-none resize-none"></textarea>
-      </div>
-    </div>
-    <template #footer>
-      <div class="flex justify-end gap-x-3">
-        <button class="px-5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50" @click="showCatDialog = false">取消</button>
-        <button class="px-5 py-1.5 rounded-lg bg-[var(--c-indigo)] text-white hover:bg-opacity-90" @click="submitCategory">确认创建</button>
-      </div>
-    </template>
-  </el-dialog>
 
   <!-- Create Space Dialog -->
   <el-dialog v-model="showSpaceDialog" title="创建新空间" width="480px" style="border-radius: var(--radius-card)">

@@ -33,6 +33,8 @@ async def read_posts(space_id: Optional[int] = None, page: int = 1, page_size: i
             author_id=p.author.id,
             view_count=p.view_count,
             like_count=p.like_count,
+            comment_count=p.comment_count,
+            bookmark_count=p.bookmark_count,
             created_at=p.created_at,
             updated_at=p.updated_at,
             tags=list(p.tags) if hasattr(p, "tags") else []
@@ -69,6 +71,8 @@ async def create_post(post_in: PostCreate, current_user: User = Depends(get_curr
         author_id=post.author_id,
         view_count=post.view_count,
         like_count=post.like_count,
+        comment_count=post.comment_count,
+        bookmark_count=post.bookmark_count,
         created_at=post.created_at,
         updated_at=post.updated_at,
         tags=list(post.tags) if hasattr(post, "tags") else []
@@ -94,6 +98,8 @@ async def read_post(post_id: int):
         author_id=post.author.id,
         view_count=post.view_count,
         like_count=post.like_count,
+        comment_count=post.comment_count,
+        bookmark_count=post.bookmark_count,
         created_at=post.created_at,
         updated_at=post.updated_at,
         tags=list(post.tags) if hasattr(post, "tags") else []
