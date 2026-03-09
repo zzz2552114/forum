@@ -49,7 +49,7 @@ describe('MaterialsView.vue', () => {
   })
 
   it('renders the search bar and subject filter', async () => {
-    const mockGet = vi.mocked(request.get)
+    vi.mocked(request.get)
     
     const wrapper = mountView()
     expect(wrapper.exists()).toBe(true)

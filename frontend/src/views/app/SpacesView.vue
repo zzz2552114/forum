@@ -126,6 +126,10 @@ const goBackToPosts = () => {
   isBookmarked.value = false
 }
 
+const scrollToComments = () => {
+  document.getElementById('comments-section')?.scrollIntoView({ behavior: 'smooth' })
+}
+
 const allowedCategories = ['学校', '课程', '休闲娱乐', '专业', '探索']
 
 const fetchCategories = async () => {
@@ -242,6 +246,7 @@ const handleAttachmentUpload = async (e: Event) => {
   const target = e.target as HTMLInputElement
   if (!target.files || target.files.length === 0) return
   const file = target.files[0]
+  if (!file) return
   
   isUploadingAttachment.value = true
   try {
@@ -546,7 +551,7 @@ const sections = ref([
                     </button>
                   </div>
                   
-                  <button class="flex items-center gap-2 text-[var(--c-navy)]/50 hover:text-[var(--c-indigo)] font-medium transition-colors" @click="document.getElementById('comments-section')?.scrollIntoView({ behavior: 'smooth' })">
+                  <button class="flex items-center gap-2 text-[var(--c-navy)]/50 hover:text-[var(--c-indigo)] font-medium transition-colors" @click="scrollToComments">
                     <el-icon class="text-xl"><ChatDotRound /></el-icon> {{ comments.length }} 评论
                   </button>
 

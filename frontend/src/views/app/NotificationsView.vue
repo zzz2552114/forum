@@ -1,52 +1,60 @@
 <template>
-  <div class="max-w-4xl mx-auto py-6">
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
-        <el-icon class="text-blue-600"><Bell /></el-icon> 消息中心
-      </h1>
-      <el-button @click="markAllAsRead" type="primary" plain :disabled="!hasUnread">全部标记为已读</el-button>
-    </div>
+  <div class="min-h-screen bg-slate-50 pb-12 font-sans">
+    <HomeHeader />
 
-    <el-card shadow="never" class="border-none rounded-2xl p-2" v-loading="loading">
-      <el-tabs v-model="activeTab" class="w-full">
-        <el-tab-pane label="全部消息" name="all">
-          <div class="space-y-2">
-            <div v-for="notification in notifications" :key="notification.id" 
-                 class="p-4 rounded-xl border flex gap-4 transition-colors relative cursor-pointer hover:bg-slate-50"
-                 :class="{'bg-blue-50/30 border-blue-100': !notification.is_read, 'bg-white border-slate-100': notification.is_read}"
-                 @click="handleNotificationClick(notification)">
-              
-              <!-- Icon based on type -->
-              <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                   :class="getIconClass(notification.type)">
-                <el-icon class="text-lg"><component :is="getIconComponent(notification.type)" /></el-icon>
-              </div>
+    <main class="max-w-4xl mx-auto pt-28 px-4">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-extrabold text-slate-800 flex items-center gap-3 tracking-tight">
+            <div class="p-2 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center"><el-icon><Bell /></el-icon></div>
+            消息中心
+          </h1>
+          <p class="text-slate-500 mt-2">查看您的所有互动和系统通知</p>
+        </div>
+        <el-button @click="markAllAsRead" type="primary" round size="large" class="shadow-md hover:shadow-lg transition-shadow" :disabled="!hasUnread">全部标记为已读</el-button>
+      </div>
 
-              <div class="flex-1">
-                <div class="flex justify-between items-start mb-1">
-                  <h4 class="font-bold text-slate-800">{{ notification.title }}</h4>
-                  <span class="text-xs text-slate-400 whitespace-nowrap ml-4">{{ new Date(notification.created_at).toLocaleString() }}</span>
+      <el-card shadow="never" class="border-none rounded-3xl p-4 shadow-sm bg-white" v-loading="loading">
+        <el-tabs v-model="activeTab" class="w-full">
+          <el-tab-pane label="全部消息" name="all">
+            <div class="space-y-4 mt-2">
+              <div v-for="notification in notifications" :key="notification.id" 
+                   class="p-5 rounded-2xl border flex gap-5 transition-all duration-300 relative cursor-pointer hover:shadow-md hover:-translate-y-0.5"
+                   :class="{'bg-blue-50/40 border-blue-100': !notification.is_read, 'bg-white border-slate-100': notification.is_read}"
+                   @click="handleNotificationClick(notification)">
+                
+                <!-- Icon based on type -->
+                <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm"
+                     :class="getIconClass(notification.type)">
+                  <el-icon class="text-xl"><component :is="getIconComponent(notification.type)" /></el-icon>
                 </div>
-                <p class="text-sm text-slate-600">{{ notification.content }}</p>
+
+                <div class="flex-1 pt-1">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-bold text-slate-800 text-lg leading-tight">{{ notification.title }}</h4>
+                    <span class="text-xs text-slate-400 whitespace-nowrap ml-4 font-medium">{{ new Date(notification.created_at).toLocaleString() }}</span>
+                  </div>
+                  <p class="text-slate-600 leading-relaxed">{{ notification.content }}</p>
+                </div>
+
+                <!-- Unread dot -->
+                <div v-if="!notification.is_read" class="absolute top-6 right-6 w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
               </div>
 
-              <!-- Unread dot -->
-              <div v-if="!notification.is_read" class="absolute top-5 right-4 w-2 h-2 rounded-full bg-blue-500"></div>
+              <el-empty v-if="notifications.length === 0" description="暂无新消息" class="py-12" />
             </div>
-
-            <el-empty v-if="notifications.length === 0" description="暂无新消息" />
-          </div>
+            
+            <div class="mt-8 flex justify-center pb-4" v-if="total > 0">
+              <el-pagination v-model:current-page="page" :page-size="pageSize" layout="prev, pager, next" :total="total" @current-change="fetchNotifications" background />
+            </div>
+          </el-tab-pane>
           
-          <div class="mt-6 flex justify-center" v-if="total > 0">
-            <el-pagination v-model:current-page="page" :page-size="pageSize" layout="prev, pager, next" :total="total" @current-change="fetchNotifications" />
-          </div>
-        </el-tab-pane>
-        
-        <el-tab-pane label="系统通知" name="system">
-          <el-empty description="此分类下暂无内容" />
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
+          <el-tab-pane label="系统通知" name="system">
+            <el-empty description="此分类下暂无内容" class="py-12" />
+          </el-tab-pane>
+        </el-tabs>
+      </el-card>
+    </main>
   </div>
 </template>
 
@@ -56,6 +64,7 @@ import { useRouter } from 'vue-router'
 import { Bell, ChatDotRound, Star, User, InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import HomeHeader from '@/components/HomeHeader.vue'
 
 const router = useRouter()
 const activeTab = ref('all')

@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
-import AppLayout from "@/layouts/AppLayout.vue";
+
 import { useAuthStore } from "@/stores/auth";
 import NProgress from "nprogress";
 
@@ -31,37 +31,29 @@ const routes: Array<RouteRecordRaw> = [
   },
 
   {
-    path: "/app",
-    component: AppLayout,
-    meta: { requiresAuth: true },
-    children: [
-      {
-        path: "feed",
-        name: "Feed",
-        component: () => import("@/views/app/FeedView.vue"),
-        meta: { title: "发现" },
-      },
-
-      {
-        path: "/explore",
-        name: "Explore",
-        component: () => import("@/views/app/ExploreSpacesView.vue"),
-        meta: { title: "无限探索" },
-      },
-      {
-        path: "/me/overview",
-        name: "MeOverview",
-        component: () => import("@/views/app/MeOverviewView.vue"),
-        meta: { title: "我的主页" },
-      },
-      {
-        path: "/notifications",
-        name: "Notifications",
-        component: () => import("@/views/app/NotificationsView.vue"),
-        meta: { title: "消息中心" },
-      },
-    ],
+    path: "/app/feed",
+    name: "Feed",
+    component: () => import("@/views/app/FeedView.vue"),
+    meta: { title: "发现", requiresAuth: true },
   },
+  {
+    path: "/explore",
+    name: "Explore",
+    component: () => import("@/views/app/ExploreSpacesView.vue"),
+    meta: { title: "无限探索", requiresAuth: true },
+  },
+  {
+    path: "/me/overview",
+    name: "MeOverview",
+    component: () => import("@/views/app/MeOverviewView.vue"),
+    meta: { title: "我的主页", requiresAuth: true },
+  },
+  {
+    path: "/notifications",
+    name: "Notifications",
+    component: () => import("@/views/app/NotificationsView.vue"),
+    meta: { title: "消息中心", requiresAuth: true },
+  }
 ];
 
 const router = createRouter({

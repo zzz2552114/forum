@@ -16,9 +16,21 @@ class PostCreate(BaseModel):
     tag_ids: Optional[List[int]] = None
     tag_names: Optional[List[str]] = None
 
+class PostAuthor(BaseModel):
+    id: int
+    username: str
+    nickname: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+class PostSpace(BaseModel):
+    id: int
+    name: str
+
 class PostResponse(PostBase):
     id: int
     author_id: int
+    author: Optional[PostAuthor] = None
+    space: Optional[PostSpace] = None
     view_count: int
     like_count: int
     comment_count: int

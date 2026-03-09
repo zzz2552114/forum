@@ -65,7 +65,7 @@ describe('ExploreSpacesView.vue', () => {
     
     const tabs = wrapper.findAll('.cursor-pointer') // Sidebar items
     // Click the second tab (大学生优惠合集)
-    await tabs[1].trigger('click')
+    await tabs[1]?.trigger('click')
     
     expect(wrapper.html()).toContain('大学生优惠合集')
     // As per logic, materials are only fetched for section 1 right now in our implementation
