@@ -1,6 +1,6 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from app.schemas.tag import TagResponse
 
 # --- Post Schemas ---
@@ -9,8 +9,12 @@ class PostBase(BaseModel):
     content: str
     space_id: int
 
-class PostCreate(PostBase):
-    tag_ids: list[int] = []
+class PostCreate(BaseModel):
+    title: str = Field(..., max_length=255)
+    content: str
+    space_id: int
+    tag_ids: Optional[List[int]] = None
+    tag_names: Optional[List[str]] = None
 
 class PostResponse(PostBase):
     id: int

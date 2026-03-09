@@ -13,10 +13,17 @@ router = APIRouter()
 from app.models.enums import ContentStatus
 
 @router.get("/", response_model=ResponseBase[PaginationData[PostResponse]])
-async def read_posts(space_id: Optional[int] = None, page: int = 1, page_size: int = 20):
+async def read_posts(
+    space_id: Optional[int] = None, 
+    tag_name: Optional[str] = None,
+    page: int = 1, 
+    page_size: int = 20
+):
     query = Post.filter(status=ContentStatus.PUBLISHED)
     if space_id:
         query = query.filter(space_id=space_id)
+    if tag_name:
+        query = query.filter(tags__name=tag_name)
         
     total = await query.count()
     skip = (page - 1) * page_size
@@ -54,11 +61,19 @@ async def create_post(post_in: PostCreate, current_user: User = Depends(get_curr
         author_id=current_user.id
     )
     
+    from app.models.tag import Tag
     if post_in.tag_ids:
-        from app.models.tag import Tag
         tags = await Tag.filter(id__in=post_in.tag_ids)
         if tags:
             await post.tags.add(*tags)
+    
+    if post_in.tag_names:
+        new_tags = []
+        for name in post_in.tag_names:
+            tag, _ = await Tag.get_or_create(name=name)
+            new_tags.append(tag)
+        if new_tags:
+            await post.tags.add(*new_tags)
             
     # Refetch correctly formatted
     await post.fetch_related("author", "space", "tags")

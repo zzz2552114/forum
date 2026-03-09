@@ -1,46 +1,36 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import HomeHeader from "@/components/HomeHeader.vue";
 import FeatureCard from "@/components/FeatureCard.vue";
+import request from "@/utils/request";
+import { ElMessage } from "element-plus";
 
 const router = useRouter();
 
-// Mock spaces
-const joinedSpaces = ref([
-  { id: 1, name: "XX大学空间", type: "school" },
-  { id: 2, name: "YY大学空间", type: "joined" },
-  { id: 3, name: "高等数学空间", type: "course" },
-  { id: 4, name: "剧本杀组团空间", type: "activity" },
-  { id: 5, name: "能源与动力专业", type: "major" },
-]);
+// Real spaces
+const joinedSpaces = ref<any[]>([]);
 
-// Mock materials
-const newMaterials = ref([
-  {
-    id: 1,
-    title: "XX学校XX学期高等数学.pdf",
-    tags: ["高数", "期末"],
-    downloads: 124,
-    date: "昨天",
-  },
-  {
-    id: 2,
-    title: "线性代数期末真题2025",
-    tags: ["线代", "真题"],
-    downloads: 356,
-    date: "2天前",
-  },
-  {
-    id: 3,
-    title: "概率论复习提纲",
-    tags: ["概率论", "课件"],
-    downloads: 89,
-    date: "3天前",
-  },
-]);
+// Real materials (latest)
+const newMaterials = ref<any[]>([]);
 
-// Mock exploration
+const fetchDashboardData = async () => {
+  try {
+    const spacesRes: any = await request.get('/spaces/');
+    joinedSpaces.value = (spacesRes || []).slice(0, 5); // Take up to 5 spaces
+
+    const materialsRes: any = await request.get('/resources/', { params: { page: 1, page_size: 5 }});
+    newMaterials.value = (materialsRes.items || []).slice(0, 5);
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || e.message || "获取大盘数据失败");
+  }
+};
+
+onMounted(() => {
+  fetchDashboardData();
+});
+
+// Mock exploration (keep for now as Explore is not fully backed by dynamic data in this card)
 const explorations = ref([
   {
     id: 1,
@@ -176,16 +166,14 @@ const explorations = ref([
               <div class="flex items-center justify-between text-xs mt-3">
                 <div class="flex gap-x-2">
                   <span
-                    v-for="tag in mat.tags"
-                    :key="tag"
                     class="bg-[var(--c-fog)] text-[var(--c-navy)]/70 px-2 py-0.5 rounded"
                   >
-                    {{ tag }}
+                    {{ mat.resource_type === 'past_exam' ? '往年试卷' : mat.resource_type === 'notes' ? '课堂笔记' : mat.resource_type === 'solution' ? '习题答案' : '其他资料' }}
                   </span>
                 </div>
                 <div class="text-[var(--c-navy)]/50 flex items-center gap-x-3">
-                  <span>{{ mat.downloads }} 次下载</span>
-                  <span>{{ mat.date }}</span>
+                  <span>{{ mat.download_count || 0 }} 次下载</span>
+                  <span>{{ new Date(mat.created_at).toLocaleDateString() }}</span>
                 </div>
               </div>
             </div>
@@ -193,7 +181,7 @@ const explorations = ref([
         </FeatureCard>
 
         <!-- Card 3: 无限探索 -->
-        <FeatureCard title="无限探索" subtitle="发现学校政策、优惠与校园指南">
+        <FeatureCard title="无限探索" subtitle="发现学校政策、优惠与校园指南" targetRoute="/explore">
           <div class="space-y-1 mt-1">
             <div
               v-for="item in explorations"

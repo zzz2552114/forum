@@ -21,7 +21,8 @@ async def read_resources(
 ):
     query = Resource.filter(status=ContentStatus.PUBLISHED)
     if space_id:
-        query = query.filter(space_id=space_id)
+        from tortoise.expressions import Q
+        query = query.filter(Q(space_id=space_id) | Q(school_space_id=space_id))
     if resource_type:
         query = query.filter(resource_type=resource_type)
         

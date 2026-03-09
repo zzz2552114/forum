@@ -33,7 +33,8 @@ const openSpaceDialog = async () => {
   // fetch categories for the select
   try {
     const res: any = await request.get('/categories/')
-    categories.value = res || []
+    const allowed = ['学校', '课程', '休闲娱乐', '专业', '探索']
+    categories.value = (res || []).filter((c: any) => allowed.includes(c.name))
   } catch (e) {
     console.error(e)
   }
@@ -113,20 +114,12 @@ const submitSpace = async () => {
   <!-- Create Space Dialog -->
   <el-dialog v-model="showSpaceDialog" title="创建新空间" width="480px" style="border-radius: var(--radius-card)">
     <div class="space-y-4 pt-2">
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4">
         <div>
           <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属模块 <span class="text-red-500">*</span></label>
           <el-select v-model="spaceForm.category_id" placeholder="选择模块" class="w-full">
             <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
-        </div>
-        <div>
-           <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">空间类型</label>
-           <el-select v-model="spaceForm.type" placeholder="类型" class="w-full">
-             <el-option label="学术/课程" value="course" />
-             <el-option label="学校/校区" value="school" />
-             <el-option label="兴趣/社团" value="interest" />
-           </el-select>
         </div>
       </div>
       

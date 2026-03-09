@@ -160,7 +160,11 @@ const fetchSpaces = async () => {
 const fetchPostsForSpace = async () => {
   if (!activeSpaceId.value) return;
   try {
-    const res: any = await request.get(`/posts/`, { params: { space_id: activeSpaceId.value } });
+    const params: any = { space_id: activeSpaceId.value };
+    if (activeSectionId.value === 5) {
+      params.tag_name = "交易";
+    }
+    const res: any = await request.get(`/posts/`, { params });
     posts.value = res.items || [];
   } catch(e) {
     console.error('Failed to fetch posts', e)
@@ -182,18 +186,18 @@ const sortedPosts = computed(() => {
 
 watch(activeSpaceId, () => {
   goBackToPosts()
-  if (activeSectionId.value === 1) fetchPostsForSpace()
+  if ([1, 5].includes(activeSectionId.value)) fetchPostsForSpace()
 })
 
 watch(activeSectionId, () => {
   goBackToPosts()
-  if (activeSectionId.value === 1) fetchPostsForSpace()
+  if ([1, 5].includes(activeSectionId.value)) fetchPostsForSpace()
 })
 
 onMounted(() => {
   fetchCategories()
   fetchSpaces().then(() => {
-    if (activeSectionId.value === 1) fetchPostsForSpace()
+    if ([1, 5].includes(activeSectionId.value)) fetchPostsForSpace()
   })
 })
 
@@ -230,6 +234,7 @@ const activeSection = computed(() => {
 const showCreatePostEditor = ref(false)
 const isSubmittingPost = ref(false)
 const newPostForm = ref({ title: '', content: '' })
+const isTradePost = ref(false)
 const isUploadingAttachment = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -276,15 +281,17 @@ const submitPost = async () => {
   }
   isSubmittingPost.value = true
   try {
+    // Note: We are mocking the tag insertion here. A "交易" tag needs to be resolved by ID or the backend needs to handle `tag_names`. We will pass `is_trade: true` flag and handle it in backend, or just assume Tag 1 is trade for now. We will use a special request payload `tag_names: ['交易']` and update python code to support it.
     await request.post('/posts/', {
       title: newPostForm.value.title,
       content: newPostForm.value.content,
       space_id: activeSpaceId.value,
-      tags: []
+      tag_names: isTradePost.value ? ['交易'] : []
     })
     ElMessage.success('发布成功')
     showCreatePostEditor.value = false
     newPostForm.value = { title: '', content: '' }
+    isTradePost.value = false
     fetchPostsForSpace()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || '发布失败')
@@ -296,6 +303,7 @@ const submitPost = async () => {
 const closeEditor = () => {
   showCreatePostEditor.value = false
   newPostForm.value = { title: '', content: '' }
+  isTradePost.value = false
 }
 
 const sections = ref([
@@ -677,6 +685,9 @@ const sections = ref([
           <div>
             <label class="block text-sm font-medium text-[var(--c-navy)] mb-2">标题</label>
             <input v-model="newPostForm.title" type="text" placeholder="用一句话概括你的讨论点..." class="w-full text-lg px-4 py-3 bg-white border border-[var(--c-navy)]/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--c-indigo)] focus:border-transparent transition-all shadow-sm" />
+          </div>
+          <div class="flex items-center gap-x-3">
+             <el-checkbox v-model="isTradePost" label="作为交易帖发布 (同时展示在交易专区)" size="large" />
           </div>
           <div class="flex flex-col h-[400px]">
             <div class="flex items-center justify-between mb-2">

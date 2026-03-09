@@ -172,6 +172,16 @@ const clearFilters = () => {
   activeSubject.value = '全部'
   fetchMaterials()
 }
+
+const downloadFile = (url: string) => {
+  if (!url || url === '#') return;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 </script>
 
 <template>
@@ -334,14 +344,12 @@ const clearFilters = () => {
                 <div class="text-[var(--c-navy)]/40 text-sm hidden lg:block">
                   {{ mat.download_count }} 次下载
                 </div>
-                <!-- Assuming backend exposes file url through versions or direct url -->
-                <a
-                  :href="mat.versions?.[0]?.file_url || '#'"
-                  target="_blank"
+                <button
+                  @click.stop="downloadFile(mat.versions?.[0]?.file_url)"
                   class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white text-[var(--c-indigo)] border border-[var(--c-navy)]/10 hover:border-[var(--c-indigo)] group-hover:bg-[var(--c-indigo)] group-hover:text-white transition-all shadow-sm"
                 >
                   <el-icon :size="20"><Download /></el-icon>
-                </a>
+                </button>
               </div>
             </div>
 

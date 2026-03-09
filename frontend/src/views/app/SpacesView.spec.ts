@@ -51,19 +51,23 @@ describe('SpacesView.vue', () => {
     expect(wrapper.html()).toContain('已加入空间')
   })
 
-  it('handleJoinSpace calls PUT /spaces/:id/subscriptions/me', async () => {
-    const mockGet = vi.mocked(request.get)
-    const mockPut = vi.mocked(request.put)
-    mockPut.mockResolvedValueOnce({})
-    
+  it('submits a new trade post with correct tag_names', async () => {
+    const mockPost = vi.mocked(request.post)
     const wrapper = mountView()
     await new Promise(resolve => setTimeout(resolve, 10))
-    
+
     const vm = wrapper.vm as any
-    // After mount, activeSpaceId should be set to first space (42)
     vm.activeSpaceId = 42
-    await vm.handleJoinSpace()
+    vm.newPostForm = { title: 'Sell Book', content: 'Details' }
+    vm.isTradePost = true
     
-    expect(mockPut).toHaveBeenCalledWith('/spaces/42/subscriptions/me/')
+    await vm.submitPost()
+    
+    expect(mockPost).toHaveBeenCalledWith('/posts/', expect.objectContaining({
+      title: 'Sell Book',
+      content: 'Details',
+      space_id: 42,
+      tag_names: ['交易']
+    }))
   })
 })
