@@ -14,11 +14,13 @@ const router = useRouter()
 const categories = ref<any[]>([])
 const spaces = ref<any[]>([])
 const activeSpaceId = ref<number | null>(null)
-const activeSectionId = ref(1)
+const activeSectionId = ref<number>(1) // 1: Posts, 3: Library, 4: Policy, 5: Trade
 const expandedCategories = ref<number[]>([])
 
 const isJoinLoading = ref(false)
 const posts = ref<any[]>([])
+const resources = ref<any[]>([]) // Added to store materials/policies
+
 
 // Inline Post Detail State
 const selectedPostId = ref<number | null>(null)
@@ -175,6 +177,23 @@ const fetchPostsForSpace = async () => {
   }
 }
 
+const fetchResourcesForSpace = async () => {
+  if (!activeSpaceId.value) return;
+  try {
+    const params: any = { space_id: activeSpaceId.value };
+    // If it's a school policy, it might use resource_type='policy' and school_space_id
+    // But backend /resources filter checks both space_id and school_space_id
+    if (activeSectionId.value === 4) {
+      params.resource_type = 'policy';
+    }
+    const res: any = await request.get(`/resources/`, { params });
+    resources.value = res.items || [];
+  } catch(e) {
+    console.error('Failed to fetch resources', e)
+  }
+}
+
+
 const postSortMethod = ref('created_at')
 const sortedPosts = computed(() => {
   const sorted = [...posts.value]
@@ -190,18 +209,30 @@ const sortedPosts = computed(() => {
 
 watch(activeSpaceId, () => {
   goBackToPosts()
-  if ([1, 5].includes(activeSectionId.value)) fetchPostsForSpace()
+  if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
+    fetchPostsForSpace()
+  } else if ([3, 4].includes(activeSectionId.value)) {
+    fetchResourcesForSpace()
+  }
 })
 
 watch(activeSectionId, () => {
   goBackToPosts()
-  if ([1, 5].includes(activeSectionId.value)) fetchPostsForSpace()
+  if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
+    fetchPostsForSpace()
+  } else if ([3, 4].includes(activeSectionId.value)) {
+    fetchResourcesForSpace()
+  }
 })
 
 onMounted(() => {
   fetchCategories()
   fetchSpaces().then(() => {
-    if ([1, 5].includes(activeSectionId.value)) fetchPostsForSpace()
+    if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
+      fetchPostsForSpace()
+    } else if ([3, 4].includes(activeSectionId.value)) {
+      fetchResourcesForSpace()
+    }
   })
 })
 
@@ -309,6 +340,16 @@ const closeEditor = () => {
   showCreatePostEditor.value = false
   newPostForm.value = { title: '', content: '' }
   isTradePost.value = false
+}
+
+const downloadFile = (url: string) => {
+  if (!url || url === '#') return;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 const sections = ref([
@@ -603,7 +644,7 @@ const sections = ref([
           </div>
 
           <!-- List State (for posts) -->
-          <div v-else class="max-w-[800px] mx-auto pb-24">
+          <div v-else-if="[1, 2, 5, 6, 7].includes(activeSectionId)" class="max-w-[800px] mx-auto pb-24">
             <template v-if="sortedPosts.length > 0">
               <div class="flex items-center justify-between mb-4 px-1">
                 <span class="text-sm text-[var(--c-navy)]/50 font-medium">共 {{ sortedPosts.length }} 篇帖子</span>
@@ -662,7 +703,69 @@ const sections = ref([
               </div>
             </template>
           </div>
-        </div>
+          
+          <!-- Library / Policy State (for resources) -->
+          <div v-else-if="[3, 4].includes(activeSectionId)" class="max-w-[800px] mx-auto pb-24">
+            <template v-if="resources.length > 0">
+              <div class="flex items-center justify-between mb-4 px-1">
+                <span class="text-sm text-[var(--c-navy)]/50 font-medium">共 {{ resources.length }} 份资料</span>
+              </div>
+              <div class="space-y-3">
+                <div
+                  v-for="mat in resources"
+                  :key="mat.id"
+                  class="group flex items-center justify-between p-4 bg-white rounded-2xl hover:bg-[var(--c-fog)] shadow-sm transition-colors border border-transparent hover:border-[var(--c-navy)]/5 cursor-pointer text-left"
+                >
+                  <div
+                    class="flex items-start gap-x-4 overflow-hidden pr-4 max-w-[80%]"
+                  >
+                    <div
+                      class="w-12 h-12 bg-white rounded-[12px] flex items-center justify-center text-[#E85D04] shrink-0 border border-[var(--c-navy)]/5 shadow-sm"
+                    >
+                      <el-icon :size="24"><Document /></el-icon>
+                    </div>
+                    <div class="min-w-0">
+                      <h4
+                        class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors"
+                        :title="mat.title"
+                      >
+                        {{ mat.title }}
+                      </h4>
+                      <div
+                        class="flex items-center gap-x-4 text-sm text-[var(--c-navy)]/50"
+                      >
+                        <span class="flex items-center gap-x-1 font-medium"
+                          ><span
+                            class="w-1.5 h-1.5 rounded-full bg-[var(--c-gold)] opacity-80 inline-block"
+                          ></span>
+                          {{ activeSpace?.name || '未知空间' }}</span
+                        >
+                        <span>{{ mat.resource_type === 'past_exam' ? '往年试卷' : mat.resource_type === 'notes' ? '课堂笔记' : mat.resource_type === 'solution' ? '习题答案' : mat.resource_type === 'policy' ? '政策文件' : '其他资料' }}</span>
+                        <span>最后更新：{{ new Date(mat.created_at).toLocaleDateString() }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-x-4 pl-4 border-l border-[var(--c-navy)]/5 shrink-0">
+                    <div class="text-[var(--c-navy)]/40 text-sm hidden lg:block">
+                      {{ mat.download_count }} 次下载
+                    </div>
+                    <button
+                      @click.stop="downloadFile(mat.versions?.[0]?.file_url)"
+                      class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white text-[var(--c-indigo)] border border-[var(--c-navy)]/10 hover:border-[var(--c-indigo)] group-hover:bg-[var(--c-indigo)] group-hover:text-white transition-all shadow-sm"
+                    >
+                      <el-icon :size="20"><component :is="Number(activeSectionId) === 4 ? 'Upload' : 'Download'" :style="{ transform: Number(activeSectionId) === 4 ? 'rotate(180deg)' : 'none' }" /></el-icon>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <div class="text-center text-[var(--c-navy)]/40 mt-10">
+                暂无资料
+              </div>
+            </template>
+          </div>        </div>
 
         <!-- Floating Action Button -->
         <button 

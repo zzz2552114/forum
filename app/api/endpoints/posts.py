@@ -23,7 +23,7 @@ async def read_posts(
     if space_id:
         query = query.filter(space_id=space_id)
     if tag_name:
-        query = query.filter(tags__name=tag_name)
+        query = query.filter(tags__name=tag_name).distinct()
         
     total = await query.count()
     skip = (page - 1) * page_size
