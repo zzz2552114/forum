@@ -521,9 +521,9 @@ const sections = ref([
         <div
           class="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar bg-[var(--c-fog)]/30"
         >
-          <!-- Empty State Mockup -->
+          <!-- Empty State Mockup (only for sections with no implemented content yet) -->
           <div
-            v-if="activeSectionId !== 1"
+            v-if="[2, 6, 7].includes(activeSectionId)"
             class="h-full flex flex-col items-center justify-center text-[var(--c-navy)]/40 mt-20"
           >
             <div
@@ -754,7 +754,7 @@ const sections = ref([
                       @click.stop="downloadFile(mat.versions?.[0]?.file_url)"
                       class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white text-[var(--c-indigo)] border border-[var(--c-navy)]/10 hover:border-[var(--c-indigo)] group-hover:bg-[var(--c-indigo)] group-hover:text-white transition-all shadow-sm"
                     >
-                      <el-icon :size="20"><component :is="Number(activeSectionId) === 4 ? 'Upload' : 'Download'" :style="{ transform: Number(activeSectionId) === 4 ? 'rotate(180deg)' : 'none' }" /></el-icon>
+                      <el-icon :size="20"><Document /></el-icon>
                     </button>
                   </div>
                 </div>
@@ -765,7 +765,8 @@ const sections = ref([
                 暂无资料
               </div>
             </template>
-          </div>        </div>
+          </div>
+        </div>
 
         <!-- Floating Action Button -->
         <button 
