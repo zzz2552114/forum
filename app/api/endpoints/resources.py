@@ -166,11 +166,12 @@ async def download_resource(resource_id: int, current_user: User = Depends(get_c
     latest_version = resource.versions[-1]
     file_record = latest_version.file
     
-    if not file_record or not os.path.exists(file_record.url):
+    file_path = file_record.url.lstrip("/")
+    if not file_record or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Physical file not found")
         
     return FileResponse(
-        path=file_record.url, 
+        path=file_path, 
         filename=file_record.filename or resource.title,
         media_type=file_record.content_type
     )
