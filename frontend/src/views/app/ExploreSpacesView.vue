@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, markRaw } from 'vue'
-import { Search, Plus, Location, Present, Star, Monitor, Trophy, Document, Upload } from '@element-plus/icons-vue'
+import { Search, Plus, Location, Present, Star, Monitor, Trophy, Document, Upload, StarFilled } from '@element-plus/icons-vue'
 import HomeHeader from '@/components/HomeHeader.vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
@@ -157,14 +157,37 @@ const submitUpload = async () => {
   }
 }
 
-const downloadFile = (url: string) => {
-  if (!url || url === '#') return;
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+const downloadFile = async (mat: any) => {
+  if (!mat) return;
+  try {
+    const response = await request.post(`/resources/${mat.id}/download`, {}, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response as any]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = mat.filename || `${mat.title}.pdf`; // generic fallback
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    mat.download_count = (mat.download_count || 0) + 1;
+  } catch (e) {
+    ElMessage.error('下载遇到错误');
+  }
+}
+
+const toggleBookmark = async (mat: any) => {
+  try {
+    const res: any = await request.post(`/resources/${mat.id}/bookmark`)
+    mat.is_bookmarked = res.bookmarked
+    if (mat.is_bookmarked) {
+      mat.bookmark_count = (mat.bookmark_count || 0) + 1
+      ElMessage.success('已加入收藏')
+    } else {
+      mat.bookmark_count = Math.max(0, (mat.bookmark_count || 0) - 1)
+      ElMessage.success('已取消收藏')
+    }
+  } catch (e) {
+    ElMessage.error('操作失败')
+  }
 }
 
 </script>
@@ -305,9 +328,17 @@ const downloadFile = (url: string) => {
               <div
                 class="flex items-center gap-x-4 pl-4 border-l border-[var(--c-navy)]/5 shrink-0"
               >
+                <!-- Bookmark Button -->
+                <button
+                  @click.stop="toggleBookmark(mat)"
+                  class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white border transition-all shadow-sm"
+                  :class="mat.is_bookmarked ? 'text-orange-500 border-orange-200 hover:bg-orange-50' : 'text-[var(--c-indigo)] border-[var(--c-navy)]/10 hover:border-orange-300 hover:text-orange-500'"
+                >
+                  <el-icon :size="20"><StarFilled v-if="mat.is_bookmarked" /><Star v-else /></el-icon>
+                </button>
                 <!-- Download Button -->
                 <button
-                  @click.stop="downloadFile(mat.versions?.[0]?.file_url)"
+                  @click.stop="downloadFile(mat)"
                   class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white text-[var(--c-indigo)] border border-[var(--c-navy)]/10 hover:border-[var(--c-indigo)] group-hover:bg-[var(--c-indigo)] group-hover:text-white transition-all shadow-sm"
                 >
                   <el-icon :size="20" style="transform: rotate(180deg)"><Upload /></el-icon>

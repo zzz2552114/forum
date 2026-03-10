@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-slate-50 pb-12 font-sans">
     <HomeHeader />
 
-    <main class="max-w-4xl mx-auto pt-28 px-4 space-y-8">
+    <main class="max-w-4xl mx-auto pt-8 px-4 space-y-8">
       <!-- Premium Header Card -->
       <div class="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl shadow-xl overflow-hidden relative">
         <div class="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
@@ -46,15 +46,15 @@
           </div>
         </template>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-2">
-          <div class="flex items-center justify-between p-5 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 cursor-pointer transition-all duration-300">
+          <div @click="$router.push('/me/posts')" class="flex items-center justify-between p-5 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 cursor-pointer transition-all duration-300">
             <div class="flex items-center gap-4"><div class="p-2 bg-blue-100 rounded-xl text-blue-600 flex items-center justify-center"><el-icon class="text-xl"><Document /></el-icon></div> <span class="font-bold text-slate-700">我的帖子</span></div>
             <el-icon class="text-slate-400"><ArrowRight /></el-icon>
           </div>
-          <div class="flex items-center justify-between p-5 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 cursor-pointer transition-all duration-300">
+          <div @click="$router.push('/me/favorites')" class="flex items-center justify-between p-5 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 cursor-pointer transition-all duration-300">
             <div class="flex items-center gap-4"><div class="p-2 bg-orange-100 rounded-xl text-orange-600 flex items-center justify-center"><el-icon class="text-xl"><Star /></el-icon></div> <span class="font-bold text-slate-700">我的收藏</span></div>
             <el-icon class="text-slate-400"><ArrowRight /></el-icon>
           </div>
-          <div class="flex items-center justify-between p-5 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 cursor-pointer transition-all duration-300">
+          <div @click="$router.push('/me/materials')" class="flex items-center justify-between p-5 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 cursor-pointer transition-all duration-300">
             <div class="flex items-center gap-4"><div class="p-2 bg-green-100 rounded-xl text-green-600 flex items-center justify-center"><el-icon class="text-xl"><FolderOpened /></el-icon></div> <span class="font-bold text-slate-700">我的资料库</span></div>
             <el-icon class="text-slate-400"><ArrowRight /></el-icon>
           </div>

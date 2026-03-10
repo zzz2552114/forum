@@ -17,6 +17,10 @@
           <span class="font-medium text-slate-700 hover:text-blue-600 truncate">{{ post.author?.nickname || post.author?.username || '佚名' }}</span>
           <span>&middot;</span>
           <span>{{ new Date(post.created_at).toLocaleDateString() }}</span>
+          <template v-if="post.space">
+            <span>&middot;</span>
+            <el-tag size="small" type="info" effect="light" class="rounded-full border-none">来自 {{ post.space.name }}</el-tag>
+          </template>
           
           <template v-if="post.tags && post.tags.length > 0">
             <span>&middot;</span>

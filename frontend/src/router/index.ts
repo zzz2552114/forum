@@ -49,6 +49,24 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: "我的主页", requiresAuth: true },
   },
   {
+    path: "/me/posts",
+    name: "MePosts",
+    component: () => import("@/views/app/MyPostsView.vue"),
+    meta: { title: "我的帖子", requiresAuth: true },
+  },
+  {
+    path: "/me/favorites",
+    name: "MeFavorites",
+    component: () => import("@/views/app/MyFavoritePostsView.vue"),
+    meta: { title: "我的收藏", requiresAuth: true },
+  },
+  {
+    path: "/me/materials",
+    name: "MeMaterials",
+    component: () => import("@/views/app/MyMaterialsView.vue"),
+    meta: { title: "我的资料库", requiresAuth: true },
+  },
+  {
     path: "/notifications",
     name: "Notifications",
     component: () => import("@/views/app/NotificationsView.vue"),

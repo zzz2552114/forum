@@ -16,6 +16,8 @@ from app.models.enums import ContentStatus
 async def read_posts(
     space_id: Optional[int] = None, 
     tag_name: Optional[str] = None,
+    author_id: Optional[int] = None,
+    bookmarked_by_id: Optional[int] = None,
     page: int = 1, 
     page_size: int = 20
 ):
@@ -24,6 +26,10 @@ async def read_posts(
         query = query.filter(space_id=space_id)
     if tag_name:
         query = query.filter(tags__name=tag_name).distinct()
+    if author_id:
+        query = query.filter(author_id=author_id)
+    if bookmarked_by_id:
+        query = query.filter(bookmarked_by__user_id=bookmarked_by_id).distinct()
         
     total = await query.count()
     skip = (page - 1) * page_size
@@ -140,3 +146,23 @@ async def like_post(post_id: int, current_user: User = Depends(get_current_activ
     await Post.filter(id=post.id).update(like_count=F("like_count") + 1)
     
     return success_response({"message": "Post liked successfully"})
+
+@router.post("/{post_id}/bookmark")
+async def bookmark_post(post_id: int, current_user: User = Depends(get_current_active_user)):
+    from app.models.interactions import PostBookmark
+    post = await Post.get_or_none(id=post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+        
+    bookmark, created = await PostBookmark.get_or_create(user_id=current_user.id, post_id=post_id)
+    if not created:
+        # If already bookmarked, let's un-bookmark it (toggle)
+        await bookmark.delete()
+        from tortoise.expressions import F
+        await Post.filter(id=post.id).update(bookmark_count=F("bookmark_count") - 1)
+        return success_response({"message": "Post unbookmarked successfully", "bookmarked": False})
+        
+    from tortoise.expressions import F
+    await Post.filter(id=post.id).update(bookmark_count=F("bookmark_count") + 1)
+    
+    return success_response({"message": "Post bookmarked successfully", "bookmarked": True})

@@ -16,6 +16,9 @@ from app.models.enums import ContentStatus
 async def read_resources(
     space_id: Optional[int] = None, 
     resource_type: Optional[str] = None,
+    uploader_id: Optional[int] = None,
+    bookmarked_by_id: Optional[int] = None,
+    downloaded_by_id: Optional[int] = None,
     page: int = 1, 
     page_size: int = 20
 ):
@@ -25,6 +28,12 @@ async def read_resources(
         query = query.filter(Q(space_id=space_id) | Q(school_space_id=space_id))
     if resource_type:
         query = query.filter(resource_type=resource_type)
+    if uploader_id:
+        query = query.filter(uploader_id=uploader_id)
+    if bookmarked_by_id:
+        query = query.filter(bookmarked_by__user_id=bookmarked_by_id)
+    if downloaded_by_id:
+        query = query.filter(downloaded_by__user_id=downloaded_by_id).distinct()
         
     total = await query.count()
     skip = (page - 1) * page_size
@@ -114,3 +123,54 @@ async def read_resource(resource_id: int):
         created_at=resource.created_at,
         versions=versions
     ))
+
+from fastapi.responses import FileResponse
+import os
+
+@router.post("/{resource_id}/bookmark")
+async def bookmark_resource(resource_id: int, current_user: User = Depends(get_current_active_user)):
+    from app.models.interactions import ResourceBookmark
+    resource = await Resource.get_or_none(id=resource_id)
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+        
+    bookmark, created = await ResourceBookmark.get_or_create(user_id=current_user.id, resource_id=resource_id)
+    if not created:
+        await bookmark.delete()
+        from tortoise.expressions import F
+        await Resource.filter(id=resource.id).update(bookmark_count=F("bookmark_count") - 1)
+        return success_response({"message": "Resource unbookmarked successfully", "bookmarked": False})
+        
+    from tortoise.expressions import F
+    await Resource.filter(id=resource.id).update(bookmark_count=F("bookmark_count") + 1)
+    
+    return success_response({"message": "Resource bookmarked successfully", "bookmarked": True})
+
+@router.post("/{resource_id}/download")
+async def download_resource(resource_id: int, current_user: User = Depends(get_current_active_user)):
+    from app.models.interactions import ResourceDownload
+    resource = await Resource.get_or_none(id=resource_id).prefetch_related("versions__file")
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+        
+    # Record download
+    await ResourceDownload.create(user_id=current_user.id, resource_id=resource_id)
+    
+    from tortoise.expressions import F
+    await Resource.filter(id=resource.id).update(download_count=F("download_count") + 1)
+    
+    # Get the latest version file
+    if not resource.versions:
+        raise HTTPException(status_code=404, detail="Resource has no file versions")
+    
+    latest_version = resource.versions[-1]
+    file_record = latest_version.file
+    
+    if not file_record or not os.path.exists(file_record.filepath):
+        raise HTTPException(status_code=404, detail="Physical file not found")
+        
+    return FileResponse(
+        path=file_record.filepath, 
+        filename=file_record.filename or resource.title,
+        media_type=file_record.content_type
+    )
