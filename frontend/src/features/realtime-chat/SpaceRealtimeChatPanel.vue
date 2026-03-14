@@ -13,7 +13,7 @@
 
     <div class="flex-1 overflow-y-auto rounded-xl border border-[var(--c-navy)]/10 bg-[var(--c-fog)] p-3 space-y-2 mt-4 mb-4 custom-scrollbar">
       <div
-        v-for="(event, idx) in messages"
+        v-for="(event, idx) in messages.filter(e => e.message !== 'ping' && e.message !== 'pong')"
         :key="`${event.event_id}-${idx}`"
         class="text-sm"
         :class="event.type === 'chat' ? 'text-[var(--c-navy)]' : 'text-[var(--c-navy)]/65'"

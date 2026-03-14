@@ -50,7 +50,38 @@ const fetchComments = async (id: number) => {
     const res: any = await request.get(`/comments/post/${id}`, {
       params: { page: 1, page_size: 100 }
     })
-    comments.value = res.items || []
+    const rawComments = res.items || []
+    
+    // 构建一层嵌套的“楼中楼”树形结构
+    const topLevel: any[] = []
+    const map = new Map()
+
+    rawComments.forEach((c: any) => {
+      c.replies = []
+      map.set(c.id, c)
+    })
+
+    rawComments.forEach((c: any) => {
+      if (c.parent_id) {
+        let parent = map.get(c.parent_id)
+        let rootParent = parent
+        // 追溯找到顶级评论（帖子下的一级评论）
+        while (rootParent && rootParent.parent_id) {
+           rootParent = map.get(rootParent.parent_id)
+        }
+        if (rootParent) {
+          rootParent.replies.push(c)
+        } else if (parent) {
+          parent.replies.push(c)
+        } else {
+          topLevel.push(c)
+        }
+      } else {
+        topLevel.push(c)
+      }
+    })
+    
+    comments.value = topLevel
   } catch (e) {
     console.error(e)
   } finally {
@@ -187,7 +218,11 @@ const fetchResourcesForSpace = async () => {
       params.resource_type = 'policy';
     }
     const res: any = await request.get(`/resources/`, { params });
-    const fetchedResources = res.items || [];
+    let fetchedResources = res.items || [];
+    // 题库区排除政策文件
+    if (activeSectionId.value === 3) {
+      fetchedResources = fetchedResources.filter((r: any) => r.resource_type !== 'policy')
+    }
     // 按照上传时间倒序排列
     resources.value = fetchedResources.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   } catch(e) {
@@ -552,6 +587,7 @@ const sections = ref([
           <div v-else-if="activeSectionId === 2" class="h-[calc(100vh-[var(--header-height,64px)]-8rem)] min-h-[500px] w-full">
              <SpaceRealtimeChatPanel 
                v-if="activeSpaceId" 
+               :key="activeSpaceId + '-' + activeSectionId"
                :space-id="activeSpaceId" 
                :section-id="2"
                :username="authStore.user?.nickname || authStore.user?.username || `用户${authStore.user?.id || '?'}`"
