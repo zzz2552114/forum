@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
@@ -64,7 +64,8 @@ describe('SpacesView.vue', () => {
   it('renders the spaces sidebar structure', async () => {
     const { wrapper } = mountView()
     expect(wrapper.exists()).toBe(true)
-    expect(wrapper.html()).toContain('group flex items-center')
+    // SpaceSidebar is now a child component, we just check if it was mounted
+    expect(wrapper.findComponent({ name: 'SpaceSidebar' }).exists()).toBe(true)
   })
 
   it('guest cannot join space', async () => {

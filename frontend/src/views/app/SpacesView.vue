@@ -6,162 +6,36 @@ import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import SpaceRealtimeChatPanel from '@/features/realtime-chat/SpaceRealtimeChatPanel.vue'
+import ResourceList from '@/features/spaces/ResourceList.vue'
+import PostList from '@/features/spaces/PostList.vue'
+import PostDetail from '@/features/spaces/PostDetail.vue'
+import CreatePostEditor from '@/features/spaces/CreatePostEditor.vue'
+import SpaceSidebar from '@/features/spaces/SpaceSidebar.vue'
+import SpaceSectionMenu from '@/features/spaces/SpaceSectionMenu.vue'
 import HomeHeader from '@/components/HomeHeader.vue'
 import { ArrowLeft, CaretTop, CaretBottom, ChatDotRound, StarFilled, MoreFilled, ArrowUpBold, View, Loading } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 // State
 const categories = ref<any[]>([])
 const spaces = ref<any[]>([])
 const activeSpaceId = ref<number | null>(null)
 const activeSectionId = ref<number>(1) // 1: Posts, 3: Library, 4: Policy, 5: Trade
-const expandedCategories = ref<number[]>([])
-
 const isJoinLoading = ref(false)
 const posts = ref<any[]>([])
 const resources = ref<any[]>([]) // Added to store materials/policies
 
 
-// Inline Post Detail State
+// Inline Post Detail State (simplified)
 const selectedPostId = ref<number | null>(null)
-const selectedPost = ref<any>(null)
-const loadingPost = ref(false)
-const comments = ref<any[]>([])
-const loadingComments = ref(false)
-
-const fetchPostDetail = async (id: number) => {
-  selectedPostId.value = id
-  loadingPost.value = true
-  try {
-    selectedPost.value = await request.get(`/posts/${id}`)
-    await fetchComments(id)
-  } catch (e) {
-    ElMessage.error('无法加载帖子详情')
-    selectedPostId.value = null
-  } finally {
-    loadingPost.value = false
-  }
-}
-
-const fetchComments = async (id: number) => {
-  loadingComments.value = true
-  try {
-    const res: any = await request.get(`/comments/post/${id}`, {
-      params: { page: 1, page_size: 100 }
-    })
-    const rawComments = res.items || []
-    
-    // 构建一层嵌套的“楼中楼”树形结构
-    const topLevel: any[] = []
-    const map = new Map()
-
-    rawComments.forEach((c: any) => {
-      c.replies = []
-      map.set(c.id, c)
-    })
-
-    rawComments.forEach((c: any) => {
-      if (c.parent_id) {
-        let parent = map.get(c.parent_id)
-        let rootParent = parent
-        // 追溯找到顶级评论（帖子下的一级评论）
-        while (rootParent && rootParent.parent_id) {
-           rootParent = map.get(rootParent.parent_id)
-        }
-        if (rootParent) {
-          rootParent.replies.push(c)
-        } else if (parent) {
-          parent.replies.push(c)
-        } else {
-          topLevel.push(c)
-        }
-      } else {
-        topLevel.push(c)
-      }
-    })
-    
-    comments.value = topLevel
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loadingComments.value = false
-  }
-}
-
-const submitComment = async () => {
-  if (!newComment.value.trim() || !selectedPostId.value) return
-  isSubmittingComment.value = true
-  try {
-    const payload: any = { content: newComment.value, post_id: selectedPostId.value }
-    if (replyToId.value) {
-      payload.parent_id = replyToId.value
-    }
-    await request.post(`/comments/`, payload)
-    newComment.value = ''
-    replyToId.value = null
-    ElMessage.success('评论发布成功')
-    fetchComments(selectedPostId.value)
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || err.response?.data?.detail || err.message || '发布评论失败')
-  } finally {
-    isSubmittingComment.value = false
-  }
-}
-
-const handleReply = (commentId: number, username: string) => {
-  replyToId.value = commentId
-  newComment.value = `回复 @${username} : `
-  document.getElementById('comment-input')?.focus()
-}
-
-const isLiked = ref(false)
-const isBookmarked = ref(false)
-const authStore = useAuthStore()
-
-const toggleLike = async () => {
-  if (!authStore.isAuthenticated) return ElMessage.warning('请先登录再操作')
-  if (!selectedPostId.value || !selectedPost.value) return
-  try {
-    if (isLiked.value) {
-      await request.delete(`/posts/${selectedPostId.value}/likes/me`)
-      selectedPost.value.like_count--
-    } else {
-      await request.put(`/posts/${selectedPostId.value}/likes/me`)
-      selectedPost.value.like_count++
-    }
-    isLiked.value = !isLiked.value
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || '操作失败')
-  }
-}
-
-const toggleBookmark = async () => {
-  if (!authStore.isAuthenticated) return ElMessage.warning('请先登录再操作')
-  if (!selectedPostId.value || !selectedPost.value) return
-  try {
-    if (isBookmarked.value) {
-      await request.delete(`/posts/${selectedPostId.value}/bookmarks/me`)
-    } else {
-      await request.put(`/posts/${selectedPostId.value}/bookmarks/me`)
-    }
-    isBookmarked.value = !isBookmarked.value
-    ElMessage.success(isBookmarked.value ? '已收藏' : '已取消收藏')
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || '操作失败')
-  }
-}
 
 const goBackToPosts = () => {
   selectedPostId.value = null
-  selectedPost.value = null
-  isLiked.value = false
-  isBookmarked.value = false
 }
 
-const scrollToComments = () => {
-  document.getElementById('comments-section')?.scrollIntoView({ behavior: 'smooth' })
-}
+
 
 const allowedCategories = ['学校', '课程', '休闲娱乐', '专业', '探索']
 
@@ -169,9 +43,6 @@ const fetchCategories = async () => {
   try {
     const res: any = await request.get('/categories/')
     categories.value = (res || []).filter((c: any) => allowedCategories.includes(c.name))
-    if (categories.value.length > 0) {
-      expandedCategories.value = categories.value.map(c => c.id) // Default expand all allowed categories
-    }
   } catch (e: any) {
     console.error('Failed to fetch categories', e)
   }
@@ -231,18 +102,7 @@ const fetchResourcesForSpace = async () => {
 }
 
 
-const postSortMethod = ref('created_at')
-const sortedPosts = computed(() => {
-  const sorted = [...posts.value]
-  if (postSortMethod.value === 'created_at') {
-    sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  } else if (postSortMethod.value === 'updated_at') {
-    sorted.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-  } else if (postSortMethod.value === 'like_count') {
-    sorted.sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
-  }
-  return sorted
-})
+
 
 watch(activeSpaceId, () => {
   goBackToPosts()
@@ -290,13 +150,18 @@ const handleJoinSpace = async () => {
   }
 }
 
-const toggleCategory = (id: number) => {
-  if (expandedCategories.value.includes(id)) {
-    expandedCategories.value = expandedCategories.value.filter(cid => cid !== id)
-  } else {
-    expandedCategories.value.push(id)
+const showCreatePostEditor = ref(false)
+
+const handleOpenEditor = () => {
+  if (!authStore.isAuthenticated) {
+    ElMessage.warning('请先登录再发布帖子')
+    router.push('/?showLogin=true')
+    return
   }
+  showCreatePostEditor.value = true
 }
+
+
 
 const activeSpace = computed(() => {
   return spaces.value.find((s: any) => s.id === activeSpaceId.value)
@@ -310,81 +175,6 @@ const activeSection = computed(() => {
 const newComment = ref('')
 const replyToId = ref<number | null>(null)
 const isSubmittingComment = ref(false)
-const showCreatePostEditor = ref(false)
-const isSubmittingPost = ref(false)
-const newPostForm = ref({ title: '', content: '' })
-const isTradePost = ref(false)
-const isUploadingAttachment = ref(false)
-const fileInput = ref<HTMLInputElement | null>(null)
-
-const handleAttachmentUpload = async (e: Event) => {
-  const target = e.target as HTMLInputElement
-  if (!target.files || target.files.length === 0) return
-  const file = target.files[0]
-  if (!file) return
-  
-  isUploadingAttachment.value = true
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('biz_type', 'attachment')
-
-    const res: any = await request.post('/files/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    
-    // Insert into content
-    const isImage = file.type.startsWith('image/')
-    const mdLink = isImage ? `\n![${file.name}](/uploads/${res.filename})\n` : `\n[${file.name}](/uploads/${res.filename})\n`
-    newPostForm.value.content += mdLink
-    ElMessage.success('附件插入成功')
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || err.message || '附件上传失败')
-  } finally {
-    isUploadingAttachment.value = false
-    if (fileInput.value) fileInput.value.value = ''
-  }
-}
-
-const handleOpenEditor = () => {
-  if (!authStore.isAuthenticated) {
-    ElMessage.warning('请先登录再发布帖子')
-    router.push('/?showLogin=true')
-    return
-  }
-  showCreatePostEditor.value = true
-}
-
-const submitPost = async () => {
-  if (!newPostForm.value.title.trim() || !newPostForm.value.content.trim()) {
-    return ElMessage.warning('标题和内容不能为空')
-  }
-  isSubmittingPost.value = true
-  try {
-    // Note: We are mocking the tag insertion here. A "交易" tag needs to be resolved by ID or the backend needs to handle `tag_names`. We will pass `is_trade: true` flag and handle it in backend, or just assume Tag 1 is trade for now. We will use a special request payload `tag_names: ['交易']` and update python code to support it.
-    await request.post('/posts/', {
-      title: newPostForm.value.title,
-      content: newPostForm.value.content,
-      space_id: activeSpaceId.value,
-      tag_names: isTradePost.value ? ['交易'] : []
-    })
-    ElMessage.success('发布成功')
-    showCreatePostEditor.value = false
-    newPostForm.value = { title: '', content: '' }
-    isTradePost.value = false
-    fetchPostsForSpace()
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || '发布失败')
-  } finally {
-    isSubmittingPost.value = false
-  }
-}
-
-const closeEditor = () => {
-  showCreatePostEditor.value = false
-  newPostForm.value = { title: '', content: '' }
-  isTradePost.value = false
-}
 
 const downloadFile = (mat: any) => {
   if (!mat) return;
@@ -417,118 +207,18 @@ const sections = ref([
 
     <div class="flex-1 flex overflow-hidden">
       <!-- Left Column: Spaces List (2 Cols ~ 16.6%) -->
-      <div
-        class="w-[84px] sm:w-[240px] shrink-0 bg-[#0F1522] flex flex-col items-center sm:items-stretch py-6 border-r border-black/10 z-10 transition-all"
-      >
-        <div
-          class="px-6 mb-4 hidden sm:block text-white/50 text-xs font-bold tracking-wider"
-        >
-          已加入空间
-        </div>
-
-        <div class="flex-1 overflow-y-auto custom-scrollbar pt-2 space-y-4">
-          <div v-for="category in categories" :key="category.id" class="mb-2">
-            <!-- Category Title (Drawer Header) -->
-            <div 
-              class="px-5 py-2 flex items-center justify-between text-white/50 text-xs font-bold tracking-wider cursor-pointer hover:text-white/80 transition-colors"
-              @click="toggleCategory(category.id)"
-            >
-              <span>{{ category.name }}</span>
-              <span>{{ expandedCategories.includes(category.id) ? '▼' : '▶' }}</span>
-            </div>
-            
-            <!-- Category Spaces List -->
-            <div v-show="expandedCategories.includes(category.id)" class="px-3 space-y-2 mt-1">
-              <div
-                v-for="space in spaces.filter(s => s.category_id === category.id)"
-                :key="space.id"
-                class="group flex items-center gap-x-3 p-2 rounded-[16px] cursor-pointer transition-all relative"
-                :class="activeSpaceId === space.id ? 'bg-white/10' : 'hover:bg-white/5'"
-                @click="activeSpaceId = space.id"
-              >
-                <!-- Active Indicator Line -->
-                <div
-                  class="absolute left-[-12px] w-1 bg-white rounded-r-md transition-all duration-300"
-                  :class="
-                    activeSpaceId === space.id
-                      ? 'h-8 opacity-100'
-                      : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-50'
-                  "
-                ></div>
-
-                <div
-                  class="w-12 h-12 shrink-0 rounded-[14px] flex items-center justify-center text-white font-bold text-lg shadow-md transition-transform bg-[var(--c-indigo)]"
-                  :class="[
-                    activeSpaceId === space.id
-                      ? 'rounded-[10px]'
-                      : 'group-hover:rounded-[10px]',
-                  ]"
-                >
-                  {{ space.name.charAt(0) }}
-                </div>
-
-                <div class="hidden sm:block flex-1 min-w-0">
-                  <div
-                    class="text-white/90 font-medium truncate text-sm"
-                    :class="
-                      activeSpaceId === space.id ? 'text-white font-bold' : ''
-                    "
-                  >
-                    {{ space.name }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Add Space Button -->
-          <div class="px-3 pb-6">
-            <div
-              class="group flex items-center gap-x-3 p-2 rounded-[16px] cursor-pointer transition-all hover:bg-white/5"
-            >
-              <div
-                class="w-12 h-12 shrink-0 rounded-[14px] bg-white/5 border border-white/10 flex items-center justify-center text-green-500 font-bold text-xl group-hover:bg-green-500 group-hover:text-white transition-all"
-              >
-                +
-              </div>
-              <div
-                class="hidden sm:block text-green-500 font-medium group-hover:text-white transition-colors"
-              >
-                探索新空间
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SpaceSidebar 
+        :categories="categories" 
+        :spaces="spaces" 
+        v-model:active-space-id="activeSpaceId" 
+      />
 
       <!-- Middle Column: Sections (3 Cols ~ 25%) -->
-      <div
-        class="w-[280px] shrink-0 bg-white flex flex-col border-r border-[var(--c-navy)] border-opacity-10 z-0"
-      >
-        <div class="h-16 flex items-center px-6 border-b border-[var(--c-navy)] border-opacity-10 shrink-0">
-          <h2 class="text-lg font-bold text-[var(--c-navy)]">{{ activeSpace?.name || '选择空间' }}</h2>
-        </div>
-
-        <!-- Sections List -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
-          <div 
-            v-for="section in sections" 
-            :key="section.id"
-            class="flex items-center justify-between px-3 py-2 rounded-[var(--radius-btn)] cursor-pointer text-sm font-medium transition-all"
-            :class="activeSectionId === section.id ? 'bg-[var(--c-indigo)] text-white shadow-md shadow-[var(--c-indigo)]/20' : 'text-[var(--c-navy)] opacity-70 hover:opacity-100 hover:bg-[var(--c-fog)]'"
-            @click="activeSectionId = section.id"
-          >
-            <div class="flex items-center gap-x-3">
-              <el-icon :size="18" class="opacity-80"
-                ><component :is="section.icon"
-              /></el-icon>
-              <span>{{ section.name }}</span>
-            </div>
-            <span v-if="section.unread > 0" class="text-xs font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">{{ section.unread }}</span>
-          </div>
-        </div>
-      </div>
-
+      <SpaceSectionMenu 
+        :active-space-name="activeSpace?.name || ''"
+        :sections="sections"
+        v-model:active-section-id="activeSectionId"
+      />
       <!-- Right Column: Content Area (7 Cols ~ 58.3%) -->
       <div class="flex-1 h-full min-w-0 bg-white flex flex-col relative">
         <!-- Content Header -->
@@ -597,265 +287,18 @@ const sections = ref([
           </div>
 
           <!-- Inline Post Detail State -->
-          <div v-else-if="selectedPostId" class="max-w-[800px] mx-auto pb-24" v-loading="loadingPost">
-            <template v-if="selectedPost">
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-[var(--c-navy)]/5 mb-6">
-                <div class="flex items-center justify-between mb-6">
-                  <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-full bg-[var(--c-fog)] overflow-hidden shrink-0 flex items-center justify-center font-bold text-[var(--c-navy)] text-lg">
-                      {{ selectedPost.author?.nickname?.[0] || selectedPost.author?.username?.[0] || 'U' }}
-                    </div>
-                    <div>
-                      <div class="font-bold text-[var(--c-navy)] text-lg flex items-center gap-2">
-                        {{ selectedPost.author?.nickname || selectedPost.author?.username || `用户 ${selectedPost.author_id}` }}
-                        <span v-if="selectedPost.author?.trust_level" class="text-xs px-2 py-0.5 rounded-full bg-[var(--c-gold)] text-white">Lv.{{ selectedPost.author?.trust_level }}</span>
-                      </div>
-                      <div class="text-sm text-[var(--c-navy)]/50 mt-0.5">
-                        发布于 {{ new Date(selectedPost.created_at).toLocaleString() }}
-                      </div>
-                    </div>
-                  </div>
-                  <el-dropdown trigger="click">
-                    <button class="w-8 h-8 rounded-full hover:bg-[var(--c-fog)] flex items-center justify-center text-[var(--c-navy)]/60 transition-colors">
-                      <el-icon><MoreFilled /></el-icon>
-                    </button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item>分享链接</el-dropdown-item>
-                        <el-dropdown-item>举报内容</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-
-                <h1 class="text-2xl font-bold text-[var(--c-navy)] mb-4 leading-snug">
-                  <el-icon v-if="selectedPost.is_pinned" class="text-orange-500 mr-2 align-middle text-xl"><ArrowUpBold /></el-icon>
-                  <el-icon v-if="selectedPost.is_featured" class="text-red-500 mr-2 align-middle text-xl"><StarFilled /></el-icon>
-                  {{ selectedPost.title }}
-                </h1>
-
-                <div class="prose max-w-none text-[var(--c-navy)]/80 leading-relaxed mb-8 whitespace-pre-wrap text-[1.05rem]">
-                  {{ selectedPost.content }}
-                </div>
-
-                <!-- Interaction Bar -->
-                <div class="flex items-center gap-6 pt-4 border-t border-[var(--c-navy)]/5">
-                  <div class="flex items-center bg-[var(--c-fog)] rounded-full border border-[var(--c-navy)]/5 overflow-hidden">
-                    <button class="px-4 py-2 hover:bg-[var(--c-indigo)]/10 hover:text-[var(--c-indigo)] transition-colors flex items-center gap-2 font-medium" :class="{'text-[var(--c-indigo)]': isLiked}" @click="toggleLike">
-                      <el-icon class="text-lg"><CaretTop /></el-icon> {{ selectedPost.like_count || 0 }}
-                    </button>
-                    <div class="w-px h-6 bg-[var(--c-navy)]/10"></div>
-                    <button class="px-3 py-2 hover:bg-red-50 hover:text-red-600 transition-colors">
-                      <el-icon class="text-lg"><CaretBottom /></el-icon>
-                    </button>
-                  </div>
-                  
-                  <button class="flex items-center gap-2 text-[var(--c-navy)]/50 hover:text-[var(--c-indigo)] font-medium transition-colors" @click="scrollToComments">
-                    <el-icon class="text-xl"><ChatDotRound /></el-icon> {{ comments.length }} 评论
-                  </button>
-
-                  <button class="flex items-center gap-2 hover:text-orange-500 font-medium transition-colors ml-auto" :class="isBookmarked ? 'text-orange-500' : 'text-[var(--c-navy)]/50'" @click="toggleBookmark">
-                    <el-icon class="text-xl"><Star v-if="!isBookmarked" /><StarFilled v-else /></el-icon> {{ isBookmarked ? '已收藏' : '收藏' }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Comments Section -->
-              <div id="comments-section" class="bg-white rounded-2xl shadow-sm border border-[var(--c-navy)]/5 p-6">
-                <h3 class="font-bold text-[var(--c-navy)] text-lg mb-6 flex items-center gap-2">
-                  <el-icon class="text-[var(--c-indigo)]"><ChatLineRound /></el-icon> 全部评论 ({{ comments.length }})
-                </h3>
-                
-                <div class="flex gap-4 mb-8">
-                  <div class="w-10 h-10 rounded-full bg-[var(--c-fog)] flex items-center justify-center font-bold text-[var(--c-navy)] shrink-0">
-                    {{ authStore.user?.username?.[0] || 'U' }}
-                  </div>
-                  <div class="flex-1 relative">
-                    <div v-if="replyToId" class="absolute -top-6 left-0 text-xs text-indigo-500 font-medium flex items-center gap-2">
-                       正在回复...
-                       <button @click="replyToId = null; newComment = ''" class="text-[var(--c-navy)]/40 hover:text-red-500">取消</button>
-                    </div>
-                    <el-input id="comment-input" v-model="newComment" type="textarea" :rows="3" placeholder="写下你的想法..." class="mb-3 w-full" />
-                    <div class="flex justify-end">
-                      <button class="px-5 py-2 rounded-lg bg-[var(--c-indigo)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50" :disabled="!newComment.trim()" @click="submitComment">发布评论</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="space-y-6" v-loading="loadingComments">
-                  <!-- Parent Comments -->
-                  <div v-for="comment in comments" :key="comment.id" class="flex gap-4 group">
-                    <div class="w-10 h-10 rounded-full bg-[var(--c-fog)] flex items-center justify-center font-bold text-[var(--c-navy)] shrink-0 mt-1">
-                      {{ comment.author?.nickname?.[0] || comment.author?.username?.[0] || 'U' }}
-                    </div>
-                    <div class="flex-1">
-                      <div class="bg-[var(--c-fog)] rounded-2xl p-4">
-                        <div class="flex items-center justify-between mb-2">
-                          <span class="font-bold text-[var(--c-navy)] text-sm flex items-center gap-2">
-                            {{ comment.author?.nickname || comment.author?.username }}
-                            <span v-if="comment.author?.trust_level" class="text-[10px] px-1.5 rounded-full bg-[var(--c-gold)] text-white">Lv.{{ comment.author?.trust_level }}</span>
-                          </span>
-                          <span class="text-xs text-[var(--c-navy)]/40">{{ new Date(comment.created_at).toLocaleString() }}</span>
-                        </div>
-                        <p class="text-[var(--c-navy)]/80 text-sm whitespace-pre-wrap">{{ comment.content }}</p>
-                        <div class="mt-2 flex justify-end">
-                           <button class="text-xs font-medium text-[var(--c-navy)]/40 hover:text-[var(--c-indigo)] opacity-0 group-hover:opacity-100 transition-opacity" @click="handleReply(comment.id, comment.author?.nickname || comment.author?.username)">回复</button>
-                        </div>
-                      </div>
-                      
-                      <!-- Nested Replies (Max 1 level deep roughly) -->
-                      <div v-if="comment.replies && comment.replies.length > 0" class="mt-3 space-y-3">
-                        <div v-for="reply in comment.replies" :key="reply.id" class="flex gap-3 group/reply">
-                          <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-[var(--c-navy)]/70 shrink-0 border border-[var(--c-navy)]/5 text-xs">
-                            {{ reply.author?.nickname?.[0] || reply.author?.username?.[0] || 'U' }}
-                          </div>
-                          <div class="flex-1">
-                            <div class="bg-white border border-[var(--c-navy)]/5 rounded-2xl p-3">
-                              <div class="flex items-center justify-between mb-1">
-                                <span class="font-bold text-[var(--c-navy)]/80 text-xs">{{ reply.author?.nickname || reply.author?.username }}</span>
-                                <span class="text-[10px] text-[var(--c-navy)]/40">{{ new Date(reply.created_at).toLocaleString() }}</span>
-                              </div>
-                              <p class="text-[var(--c-navy)]/70 text-sm whitespace-pre-wrap">{{ reply.content }}</p>
-                              <div class="mt-1 flex justify-end">
-                                 <button class="text-[10px] font-medium text-[var(--c-navy)]/40 hover:text-[var(--c-indigo)] opacity-0 group-hover/reply:opacity-100 transition-opacity" @click="handleReply(comment.id, reply.author?.nickname || reply.author?.username)">回复</button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-                  <div v-if="!loadingComments && comments.length === 0" class="text-center text-[var(--c-navy)]/40 py-8">
-                    还没有人评论，快来抢沙发！
-                  </div>
-                </div>
-              </div>
-            </template>
+          <div v-else-if="selectedPostId" class="w-full">
+            <PostDetail :post-id="selectedPostId" @back="goBackToPosts" />
           </div>
 
           <!-- List State (for posts) -->
           <div v-else-if="[1, 2, 5, 6, 7].includes(activeSectionId)" class="max-w-[800px] mx-auto pb-24">
-            <template v-if="sortedPosts.length > 0">
-              <div class="flex items-center justify-between mb-4 px-1">
-                <span class="text-sm text-[var(--c-navy)]/50 font-medium">共 {{ sortedPosts.length }} 篇帖子</span>
-                <el-select v-model="postSortMethod" size="small" class="w-28 shadow-sm">
-                  <el-option label="最新发布" value="created_at" />
-                  <el-option label="最新回复" value="updated_at" />
-                  <el-option label="最多点赞" value="like_count" />
-                </el-select>
-              </div>
-              <div class="space-y-4">
-                <div
-                  v-for="post in sortedPosts"
-                  :key="post.id"
-                  class="bg-white p-5 rounded-2xl shadow-sm border border-[var(--c-navy)]/5 hover:border-[var(--c-gold)]/30 transition-colors cursor-pointer group"
-                  @click="fetchPostDetail(post.id)"
-                >
-                <div class="flex items-center gap-x-3 mb-3">
-                  <div
-                    class="w-10 h-10 rounded-full bg-[var(--c-fog)] overflow-hidden shrink-0 flex items-center justify-center font-bold text-[var(--c-navy)]"
-                  >
-                    {{ post.author?.nickname?.[0] || post.author?.username?.[0] || 'U' }}
-                  </div>
-                  <div>
-                    <div class="font-medium text-[var(--c-navy)] text-sm flex gap-x-2 items-center">
-                      {{ post.author?.nickname || post.author?.username || `用户 ${post.author_id}` }}
-                      <span v-if="post.author?.trust_level" class="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--c-gold)]/20 text-[var(--c-gold)] font-bold">Lv.{{ post.author?.trust_level }}</span>
-                    </div>
-                    <div class="text-xs text-[var(--c-navy)]/50 mt-0.5">
-                      {{ new Date(post.created_at).toLocaleString() }}
-                    </div>
-                  </div>
-                </div>
-                <h3
-                  class="font-medium text-[var(--c-navy)] text-lg mb-2 group-hover:text-[var(--c-indigo)]"
-                >
-                  <el-icon v-if="post.is_pinned" class="text-orange-500 mr-1 align-middle"><ArrowUpBold /></el-icon>
-                  <el-icon v-if="post.is_featured" class="text-red-500 mr-1 align-middle"><StarFilled /></el-icon>
-                  {{ post.title }}
-                </h3>
-                <p
-                  class="text-[var(--c-navy)]/70 text-sm line-clamp-2 leading-relaxed"
-                >
-                  {{ post.summary || post.content }}
-                </p>
-                <div class="mt-4 flex gap-x-4 text-xs text-[var(--c-navy)]/40 font-medium">
-                  <span class="flex items-center gap-1"><el-icon><View /></el-icon>{{ post.view_count || 0 }}</span>
-                  <span class="flex items-center gap-1"><el-icon><CaretTop /></el-icon>{{ post.like_count || 0 }}</span>
-                  <span class="flex items-center gap-1"><el-icon><ChatDotRound /></el-icon>{{ post.comment_count || 0 }}</span>
-                </div>
-              </div>
-              </div> <!-- Close space-y-4 -->
-            </template>
-            <template v-else>
-              <div class="text-center text-[var(--c-navy)]/40 mt-10">
-                暂无帖子
-              </div>
-            </template>
+            <PostList :posts="posts" @read="id => selectedPostId = id" />
           </div>
           
           <!-- Library / Policy State (for resources) -->
           <div v-else-if="[3, 4].includes(activeSectionId)" class="max-w-[800px] mx-auto pb-24">
-            <template v-if="resources.length > 0">
-              <div class="flex items-center justify-between mb-4 px-1">
-                <span class="text-sm text-[var(--c-navy)]/50 font-medium">共 {{ resources.length }} 份资料</span>
-              </div>
-              <div class="space-y-3">
-                <div
-                  v-for="mat in resources"
-                  :key="mat.id"
-                  class="group flex items-center justify-between p-4 bg-white rounded-2xl hover:bg-[var(--c-fog)] shadow-sm transition-colors border border-transparent hover:border-[var(--c-navy)]/5 cursor-pointer text-left"
-                >
-                  <div
-                    class="flex items-start gap-x-4 overflow-hidden pr-4 max-w-[80%]"
-                  >
-                    <div
-                      class="w-12 h-12 bg-white rounded-[12px] flex items-center justify-center text-[#E85D04] shrink-0 border border-[var(--c-navy)]/5 shadow-sm"
-                    >
-                      <el-icon :size="24"><Document /></el-icon>
-                    </div>
-                    <div class="min-w-0">
-                      <h4
-                        class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors"
-                        :title="mat.title"
-                      >
-                        {{ mat.title }}
-                      </h4>
-                      <div
-                        class="flex items-center gap-x-4 text-sm text-[var(--c-navy)]/50"
-                      >
-                        <span class="flex items-center gap-x-1 font-medium"
-                          ><span
-                            class="w-1.5 h-1.5 rounded-full bg-[var(--c-gold)] opacity-80 inline-block"
-                          ></span>
-                          {{ activeSpace?.name || '未知空间' }}</span
-                        >
-                        <span>{{ mat.resource_type === 'past_exam' ? '往年试卷' : mat.resource_type === 'notes' ? '课堂笔记' : mat.resource_type === 'solution' ? '习题答案' : mat.resource_type === 'policy' ? '政策文件' : '其他资料' }}</span>
-                        <span>最后更新：{{ new Date(mat.created_at).toLocaleDateString() }}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="flex items-center gap-x-4 pl-4 border-l border-[var(--c-navy)]/5 shrink-0">
-                    <div class="text-[var(--c-navy)]/40 text-sm hidden lg:block">
-                      {{ mat.download_count }} 次下载
-                    </div>
-                    <button
-                      @click.stop="downloadFile(mat)"
-                      class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white text-[var(--c-indigo)] border border-[var(--c-navy)]/10 hover:border-[var(--c-indigo)] group-hover:bg-[var(--c-indigo)] group-hover:text-white transition-all shadow-sm"
-                    >
-                      <el-icon :size="20"><Document /></el-icon>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </template>
-            <template v-else>
-              <div class="text-center text-[var(--c-navy)]/40 mt-10">
-                暂无资料
-              </div>
-            </template>
+            <ResourceList :resources="resources" :active-space-name="activeSpace?.name || ''" @download="downloadFile" />
           </div>
         </div>
 
@@ -871,51 +314,12 @@ const sections = ref([
     </div>
 
     <!-- Inline Post Editor Overlay -->
-    <div v-if="showCreatePostEditor" class="absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end">
-      <div class="w-full max-w-[800px] h-full bg-white shadow-2xl flex flex-col pt-16 animate-slide-in-right relative">
-        <button @click="closeEditor" class="absolute top-6 left-6 w-10 h-10 rounded-full bg-[var(--c-fog)] text-[var(--c-navy)] flex items-center justify-center hover:bg-gray-200 transition-colors">
-          <el-icon :size="20"><ArrowLeft /></el-icon>
-        </button>
-        <div class="px-10 pb-6 border-b border-[var(--c-navy)]/5 pt-1">
-          <h2 class="text-2xl font-bold text-[var(--c-navy)]">发布新帖子</h2>
-          <p class="text-[var(--c-navy)]/50 mt-1">发往 <span class="font-medium text-[var(--c-indigo)]">{{ activeSpace?.name }}</span></p>
-        </div>
-        
-        <div class="flex-1 overflow-y-auto px-10 py-8 custom-scrollbar space-y-6 bg-[var(--c-fog)]/30">
-          <div>
-            <label class="block text-sm font-medium text-[var(--c-navy)] mb-2">标题</label>
-            <input v-model="newPostForm.title" type="text" placeholder="用一句话概括你的讨论点..." class="w-full text-lg px-4 py-3 bg-white border border-[var(--c-navy)]/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--c-indigo)] focus:border-transparent transition-all shadow-sm" />
-          </div>
-          <div class="flex items-center gap-x-3">
-             <el-checkbox v-model="isTradePost" label="作为交易帖发布 (同时展示在交易专区)" size="large" />
-          </div>
-          <div class="flex flex-col h-[400px]">
-            <div class="flex items-center justify-between mb-2">
-              <label class="text-sm font-medium text-[var(--c-navy)]">正文 (支持 Markdown)</label>
-              
-              <!-- Attachment Button -->
-              <input type="file" ref="fileInput" @change="handleAttachmentUpload" accept="image/*,.pdf" class="hidden" />
-              <button @click="fileInput?.click()" :disabled="isUploadingAttachment" class="flex items-center gap-1 text-sm font-medium text-[var(--c-indigo)] hover:text-opacity-80 disabled:opacity-50">
-                <el-icon v-if="isUploadingAttachment" class="is-loading"><Loading /></el-icon>
-                <el-icon v-else><Document /></el-icon>
-                插入图片 / PDF
-              </button>
-            </div>
-            
-            <textarea v-model="newPostForm.content" placeholder="详细描述你想分享或探讨的内容..." class="w-full flex-1 p-4 bg-white border border-[var(--c-navy)]/10 rounded-xl text-base text-[var(--c-navy)]/80 focus:outline-none focus:ring-2 focus:ring-[var(--c-indigo)] focus:border-transparent transition-all shadow-sm resize-none custom-scrollbar"></textarea>
-          </div>
-        </div>
-        
-        <div class="p-6 border-t border-[var(--c-navy)]/5 bg-white flex justify-end gap-x-4">
-          <button @click="closeEditor" class="px-6 py-2.5 rounded-xl font-medium text-[var(--c-navy)]/70 hover:bg-[var(--c-fog)] transition-colors disabled:opacity-50" :disabled="isSubmittingPost">
-            取消
-          </button>
-          <button @click="submitPost" :disabled="isSubmittingPost || !newPostForm.title.trim() || !newPostForm.content.trim()" class="px-8 py-2.5 rounded-xl font-medium text-white bg-[var(--c-indigo)] hover:bg-opacity-90 shadow-lg shadow-[var(--c-indigo)]/20 transition-all disabled:opacity-50 disabled:shadow-none min-w-[120px]">
-            {{ isSubmittingPost ? '发布中...' : '发布帖子' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <CreatePostEditor 
+      v-model:visible="showCreatePostEditor" 
+      :space-id="activeSpaceId" 
+      :space-name="activeSpace?.name || ''"
+      @success="fetchPostsForSpace" 
+    />
   </div>
 </template>
 
