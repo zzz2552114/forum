@@ -3,9 +3,9 @@
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
         <el-icon class="text-blue-600"><Bell /></el-icon>
-        éç¥ä¸­å¿
+        通知中心
       </h1>
-      <el-button @click="markAllAsRead" type="primary" plain :disabled="!hasUnread">å¨é¨æ ä¸ºå·²è¯»</el-button>
+      <el-button @click="markAllAsRead" type="primary" plain :disabled="!hasUnread">全部标记为已读</el-button>
     </div>
 
     <el-card shadow="never" class="border-none rounded-2xl p-2" v-loading="loading">

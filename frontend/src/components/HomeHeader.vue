@@ -166,8 +166,14 @@ const submitSpace = async () => {
         </div>
         <template #dropdown>
           <el-dropdown-menu class="min-w-[160px]">
-            <el-dropdown-item class="py-2.5" :disabled="!canCreateSpace" @click="openSpaceDialog">
-              <el-icon><Plus /></el-icon> 创建专属空间
+            <el-dropdown-item class="py-2.5" @click="router.push('/profile')">
+              个人主页
+            </el-dropdown-item>
+            <el-dropdown-item class="py-2.5" @click="ElMessage.info('研发中...')">
+              修改头像
+            </el-dropdown-item>
+            <el-dropdown-item class="py-2.5" @click="ElMessage.info('研发中...')">
+              修改用户名
             </el-dropdown-item>
             <el-dropdown-item divided class="py-2.5 text-red-500" @click="handleLogout">
               退出登录

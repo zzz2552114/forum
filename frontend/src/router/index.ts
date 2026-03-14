@@ -72,6 +72,12 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/views/app/NotificationsView.vue'),
     meta: { title: '消息中心', requiresAuth: true },
   },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/app/ProfileView.vue'),
+    meta: { title: '个人主页', requiresAuth: true },
+  },
 ]
 
 const router = createRouter({
