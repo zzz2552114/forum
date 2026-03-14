@@ -13,6 +13,10 @@ def _register_and_login(client: TestClient) -> dict:
         "email": f"{username}@test.com",
         "password": "searchpass123"
     })
+    from tests.authz_test_utils import elevate_user
+    from app.models.enums import UserRole, TrustLevel
+    elevate_user(username, role=UserRole.ADMIN, trust_level=TrustLevel.CONTRIBUTOR)
+    
     login = client.post("/api/v1/auth/login", data={
         "username": username,
         "password": "searchpass123"

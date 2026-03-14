@@ -5,6 +5,7 @@ import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import SpaceRealtimeChatPanel from '@/features/realtime-chat/SpaceRealtimeChatPanel.vue'
 import HomeHeader from '@/components/HomeHeader.vue'
 import { ArrowLeft, CaretTop, CaretBottom, ChatDotRound, StarFilled, MoreFilled, ArrowUpBold, View, Loading } from '@element-plus/icons-vue'
 
@@ -28,7 +29,6 @@ const selectedPost = ref<any>(null)
 const loadingPost = ref(false)
 const comments = ref<any[]>([])
 const loadingComments = ref(false)
-const newComment = ref('')
 
 const fetchPostDetail = async (id: number) => {
   selectedPostId.value = id
@@ -50,7 +50,38 @@ const fetchComments = async (id: number) => {
     const res: any = await request.get(`/comments/post/${id}`, {
       params: { page: 1, page_size: 100 }
     })
-    comments.value = res.items || []
+    const rawComments = res.items || []
+    
+    // 构建一层嵌套的“楼中楼”树形结构
+    const topLevel: any[] = []
+    const map = new Map()
+
+    rawComments.forEach((c: any) => {
+      c.replies = []
+      map.set(c.id, c)
+    })
+
+    rawComments.forEach((c: any) => {
+      if (c.parent_id) {
+        let parent = map.get(c.parent_id)
+        let rootParent = parent
+        // 追溯找到顶级评论（帖子下的一级评论）
+        while (rootParent && rootParent.parent_id) {
+           rootParent = map.get(rootParent.parent_id)
+        }
+        if (rootParent) {
+          rootParent.replies.push(c)
+        } else if (parent) {
+          parent.replies.push(c)
+        } else {
+          topLevel.push(c)
+        }
+      } else {
+        topLevel.push(c)
+      }
+    })
+    
+    comments.value = topLevel
   } catch (e) {
     console.error(e)
   } finally {
@@ -60,28 +91,28 @@ const fetchComments = async (id: number) => {
 
 const submitComment = async () => {
   if (!newComment.value.trim() || !selectedPostId.value) return
+  isSubmittingComment.value = true
   try {
-    await request.post('/comments/', {
-      content: newComment.value,
-      post_id: selectedPostId.value
-    })
-    ElMessage.success('评论成功')
-    newComment.value = ''
-    
-    // Update local post comment list and increment outside counter
-    if (selectedPost.value) {
-      selectedPost.value.comment_count++
-      // If we want to sync it to the list outside:
-      const p = posts.value.find(x => x.id === selectedPostId.value)
-      if (p) {
-        p.comment_count++
-        p.updated_at = new Date().toISOString()
-      }
+    const payload: any = { content: newComment.value, post_id: selectedPostId.value }
+    if (replyToId.value) {
+      payload.parent_id = replyToId.value
     }
-    await fetchComments(selectedPostId.value)
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || '评论失败')
+    await request.post(`/comments/`, payload)
+    newComment.value = ''
+    replyToId.value = null
+    ElMessage.success('评论发布成功')
+    fetchComments(selectedPostId.value)
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.message || err.response?.data?.detail || err.message || '发布评论失败')
+  } finally {
+    isSubmittingComment.value = false
   }
+}
+
+const handleReply = (commentId: number, username: string) => {
+  replyToId.value = commentId
+  newComment.value = `回复 @${username} : `
+  document.getElementById('comment-input')?.focus()
 }
 
 const isLiked = ref(false)
@@ -187,7 +218,13 @@ const fetchResourcesForSpace = async () => {
       params.resource_type = 'policy';
     }
     const res: any = await request.get(`/resources/`, { params });
-    resources.value = res.items || [];
+    let fetchedResources = res.items || [];
+    // 题库区排除政策文件
+    if (activeSectionId.value === 3) {
+      fetchedResources = fetchedResources.filter((r: any) => r.resource_type !== 'policy')
+    }
+    // 按照上传时间倒序排列
+    resources.value = fetchedResources.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   } catch(e) {
     console.error('Failed to fetch resources', e)
   }
@@ -237,6 +274,10 @@ onMounted(() => {
 })
 
 const handleJoinSpace = async () => {
+  if (!authStore.isAuthenticated) {
+    ElMessage.warning('请先登录再操作')
+    return
+  }
   if (!activeSpaceId.value) return
   isJoinLoading.value = true
   try {
@@ -266,6 +307,9 @@ const activeSection = computed(() => {
 })
 
 // Create Post State
+const newComment = ref('')
+const replyToId = ref<number | null>(null)
+const isSubmittingComment = ref(false)
 const showCreatePostEditor = ref(false)
 const isSubmittingPost = ref(false)
 const newPostForm = ref({ title: '', content: '' })
@@ -342,14 +386,15 @@ const closeEditor = () => {
   isTradePost.value = false
 }
 
-const downloadFile = (url: string) => {
-  if (!url || url === '#') return;
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+const downloadFile = (mat: any) => {
+  if (!mat) return;
+  const token = localStorage.getItem('token');
+  if (!token) {
+    ElMessage.warning('请先登录再下载');
+    return;
+  }
+  window.open(`/api/v1/resources/${mat.id}/download?token=${encodeURIComponent(token)}`, '_blank');
+  mat.download_count = (mat.download_count || 0) + 1;
 }
 
 const sections = ref([
@@ -523,7 +568,7 @@ const sections = ref([
         >
           <!-- Empty State Mockup (only for sections with no implemented content yet) -->
           <div
-            v-if="[2, 6, 7].includes(activeSectionId)"
+            v-if="[6, 7].includes(activeSectionId)"
             class="h-full flex flex-col items-center justify-center text-[var(--c-navy)]/40 mt-20"
           >
             <div
@@ -536,6 +581,19 @@ const sections = ref([
             </div>
             <p class="text-lg font-medium">还没有内容</p>
             <p class="text-sm mt-1">成为第一个在这里发布的人吧！</p>
+          </div>
+
+          <!-- Realtime Chat State -->
+          <div v-else-if="activeSectionId === 2" class="h-[calc(100vh-[var(--header-height,64px)]-8rem)] min-h-[500px] w-full">
+             <SpaceRealtimeChatPanel 
+               v-if="activeSpaceId" 
+               :key="activeSpaceId + '-' + activeSectionId"
+               :space-id="activeSpaceId" 
+               :section-id="2"
+               :username="authStore.user?.nickname || authStore.user?.username || `用户${authStore.user?.id || '?'}`"
+               :token="authStore.token || undefined"
+               class="h-full bg-white rounded-2xl shadow-sm border border-[var(--c-navy)]/5 overflow-hidden" 
+             />
           </div>
 
           <!-- Inline Post Detail State -->
@@ -612,8 +670,12 @@ const sections = ref([
                   <div class="w-10 h-10 rounded-full bg-[var(--c-fog)] flex items-center justify-center font-bold text-[var(--c-navy)] shrink-0">
                     {{ authStore.user?.username?.[0] || 'U' }}
                   </div>
-                  <div class="flex-1">
-                    <el-input v-model="newComment" type="textarea" :rows="3" placeholder="写下你的想法..." class="mb-3 w-full" />
+                  <div class="flex-1 relative">
+                    <div v-if="replyToId" class="absolute -top-6 left-0 text-xs text-indigo-500 font-medium flex items-center gap-2">
+                       正在回复...
+                       <button @click="replyToId = null; newComment = ''" class="text-[var(--c-navy)]/40 hover:text-red-500">取消</button>
+                    </div>
+                    <el-input id="comment-input" v-model="newComment" type="textarea" :rows="3" placeholder="写下你的想法..." class="mb-3 w-full" />
                     <div class="flex justify-end">
                       <button class="px-5 py-2 rounded-lg bg-[var(--c-indigo)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50" :disabled="!newComment.trim()" @click="submitComment">发布评论</button>
                     </div>
@@ -621,6 +683,7 @@ const sections = ref([
                 </div>
 
                 <div class="space-y-6" v-loading="loadingComments">
+                  <!-- Parent Comments -->
                   <div v-for="comment in comments" :key="comment.id" class="flex gap-4 group">
                     <div class="w-10 h-10 rounded-full bg-[var(--c-fog)] flex items-center justify-center font-bold text-[var(--c-navy)] shrink-0 mt-1">
                       {{ comment.author?.nickname?.[0] || comment.author?.username?.[0] || 'U' }}
@@ -628,11 +691,39 @@ const sections = ref([
                     <div class="flex-1">
                       <div class="bg-[var(--c-fog)] rounded-2xl p-4">
                         <div class="flex items-center justify-between mb-2">
-                          <span class="font-bold text-[var(--c-navy)] text-sm">{{ comment.author?.nickname || comment.author?.username }}</span>
+                          <span class="font-bold text-[var(--c-navy)] text-sm flex items-center gap-2">
+                            {{ comment.author?.nickname || comment.author?.username }}
+                            <span v-if="comment.author?.trust_level" class="text-[10px] px-1.5 rounded-full bg-[var(--c-gold)] text-white">Lv.{{ comment.author?.trust_level }}</span>
+                          </span>
                           <span class="text-xs text-[var(--c-navy)]/40">{{ new Date(comment.created_at).toLocaleString() }}</span>
                         </div>
                         <p class="text-[var(--c-navy)]/80 text-sm whitespace-pre-wrap">{{ comment.content }}</p>
+                        <div class="mt-2 flex justify-end">
+                           <button class="text-xs font-medium text-[var(--c-navy)]/40 hover:text-[var(--c-indigo)] opacity-0 group-hover:opacity-100 transition-opacity" @click="handleReply(comment.id, comment.author?.nickname || comment.author?.username)">回复</button>
+                        </div>
                       </div>
+                      
+                      <!-- Nested Replies (Max 1 level deep roughly) -->
+                      <div v-if="comment.replies && comment.replies.length > 0" class="mt-3 space-y-3">
+                        <div v-for="reply in comment.replies" :key="reply.id" class="flex gap-3 group/reply">
+                          <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-[var(--c-navy)]/70 shrink-0 border border-[var(--c-navy)]/5 text-xs">
+                            {{ reply.author?.nickname?.[0] || reply.author?.username?.[0] || 'U' }}
+                          </div>
+                          <div class="flex-1">
+                            <div class="bg-white border border-[var(--c-navy)]/5 rounded-2xl p-3">
+                              <div class="flex items-center justify-between mb-1">
+                                <span class="font-bold text-[var(--c-navy)]/80 text-xs">{{ reply.author?.nickname || reply.author?.username }}</span>
+                                <span class="text-[10px] text-[var(--c-navy)]/40">{{ new Date(reply.created_at).toLocaleString() }}</span>
+                              </div>
+                              <p class="text-[var(--c-navy)]/70 text-sm whitespace-pre-wrap">{{ reply.content }}</p>
+                              <div class="mt-1 flex justify-end">
+                                 <button class="text-[10px] font-medium text-[var(--c-navy)]/40 hover:text-[var(--c-indigo)] opacity-0 group-hover/reply:opacity-100 transition-opacity" @click="handleReply(comment.id, reply.author?.nickname || reply.author?.username)">回复</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                   <div v-if="!loadingComments && comments.length === 0" class="text-center text-[var(--c-navy)]/40 py-8">
@@ -751,7 +842,7 @@ const sections = ref([
                       {{ mat.download_count }} 次下载
                     </div>
                     <button
-                      @click.stop="downloadFile(mat.versions?.[0]?.file_url)"
+                      @click.stop="downloadFile(mat)"
                       class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white text-[var(--c-indigo)] border border-[var(--c-navy)]/10 hover:border-[var(--c-indigo)] group-hover:bg-[var(--c-indigo)] group-hover:text-white transition-all shadow-sm"
                     >
                       <el-icon :size="20"><Document /></el-icon>

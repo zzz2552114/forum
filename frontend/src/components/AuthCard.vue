@@ -58,6 +58,11 @@ const switchMode = (mode: boolean) => {
   errorMsg.value = ''
   form.value.password = ''
 }
+
+const handleGuestBrowse = async () => {
+  await authStore.enterGuestSession()
+  router.push('/home')
+}
 </script>
 
 <template>
@@ -129,7 +134,7 @@ const switchMode = (mode: boolean) => {
       </button>
       <button 
         type="button" 
-        @click="router.push('/home')"
+        @click="handleGuestBrowse"
         class="w-full bg-transparent text-[var(--c-navy)] opacity-70 border border-[var(--c-navy)] border-opacity-20 rounded-[var(--radius-btn)] py-3 font-medium hover:bg-white hover:opacity-100 transition-all mt-2"
       >
         游客浏览

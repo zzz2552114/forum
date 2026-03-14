@@ -31,6 +31,10 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   response => {
     NProgress.done()
+    // Blob responses (file downloads) should be returned raw, not unwrapped
+    if (response.config.responseType === 'blob') {
+      return response
+    }
     const res = response.data
     // Since our backend uses a unified ResponseBase format: {code, message, data}
     // and HTTP exceptions return something similar or valid HTTP status codes

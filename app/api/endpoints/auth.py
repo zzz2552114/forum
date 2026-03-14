@@ -1,30 +1,34 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+﻿from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from app.schemas.user import UserCreate, UserResponse
-from app.schemas.token import Token
+
+from app.core.security import create_access_token, get_password_hash, verify_password
+from app.models.enums import TrustLevel, UserRole
 from app.models.user import User
-from app.core.security import verify_password, get_password_hash, create_access_token
+from app.schemas.token import Token
+from app.schemas.user import UserCreate, UserResponse
 
 router = APIRouter()
 
+
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: UserCreate):
-    # Check if user exists
     user = await User.get_or_none(username=user_in.username)
     if user:
         raise HTTPException(status_code=400, detail="Username already registered")
-        
+
     user_email = await User.get_or_none(email=user_in.email)
     if user_email:
         raise HTTPException(status_code=400, detail="Email already registered")
-        
-    # Create user
+
     user = await User.create(
         username=user_in.username,
         email=user_in.email,
-        hashed_password=get_password_hash(user_in.password)
+        hashed_password=get_password_hash(user_in.password),
+        role=UserRole.USER,
+        trust_level=TrustLevel.BASIC,
     )
     return user
+
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -35,8 +39,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    elif not user.is_active:
+    if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-        
+
     access_token = create_access_token(subject=user.id)
     return {"access_token": access_token, "token_type": "bearer"}

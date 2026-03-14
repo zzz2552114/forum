@@ -17,7 +17,7 @@ class User(models.Model):
     
     # Roles and Permissions
     role = fields.CharEnumField(UserRole, default=UserRole.USER)
-    trust_level = fields.IntEnumField(TrustLevel, default=TrustLevel.GUEST)
+    trust_level = fields.IntEnumField(TrustLevel, default=TrustLevel.BASIC)
     reputation_score = fields.IntField(default=0)
     
     is_active = fields.BooleanField(default=True)

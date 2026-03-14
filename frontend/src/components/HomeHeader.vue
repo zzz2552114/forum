@@ -1,19 +1,67 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Bell, Setting, UserFilled, Plus } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
+import { useNotificationSocket } from '@/features/ai-mention/useNotificationSocket'
+import { useCan } from '@/features/auth/useCan'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { can, explainDeny } = useCan()
+
 const searchQuery = ref('')
 const username = ref('同学')
+const unreadCount = ref(0)
 
-onMounted(() => {
+const {
+  connect: connectNotificationSocket,
+  notifications: pushedNotifications,
+} = useNotificationSocket()
+
+const canCreateSpace = computed(() => can({ requireAuth: true, permission: 'space.create', minTrust: 3 }))
+
+const unreadBadgeText = computed(() => {
+  if (unreadCount.value > 99) return '99+'
+  return String(unreadCount.value)
+})
+
+const fetchUnreadCount = async () => {
+  if (!authStore.isAuthenticated) {
+    unreadCount.value = 0
+    return
+  }
+
+  try {
+    const res: any = await request.get('/me/notifications/unread-count')
+    unreadCount.value = res.unread_count || 0
+  } catch {
+    unreadCount.value = 0
+  }
+}
+
+watch(
+  () => pushedNotifications.value.length,
+  (next, prev) => {
+    if (next > prev) {
+      unreadCount.value += next - prev
+    }
+  },
+)
+
+onMounted(async () => {
   if (authStore.user) {
     username.value = authStore.user.nickname || authStore.user.username || '同学'
+  }
+
+  if (authStore.isAuthenticated) {
+    await fetchUnreadCount()
+    const token = (authStore.token || '').trim()
+    if (token) {
+      void connectNotificationSocket(token)
+    }
   }
 })
 
@@ -22,15 +70,24 @@ const handleLogout = () => {
   router.push('/')
 }
 
+const handleOpenNotifications = () => {
+  router.push('/notifications')
+}
+
 // Dialog States
 const showSpaceDialog = ref(false)
 const spaceForm = ref({ name: '', slug: '', description: '', type: 'course', category_id: null as number | null })
 
 const categories = ref<any[]>([])
 const openSpaceDialog = async () => {
+  if (!canCreateSpace.value) {
+    ElMessage.warning(explainDeny({ requireAuth: true, permission: 'space.create', minTrust: 3 }))
+    return
+  }
+
   showSpaceDialog.value = true
   spaceForm.value = { name: '', slug: '', description: '', type: 'course', category_id: null }
-  // fetch categories for the select
+  
   try {
     const res: any = await request.get('/categories/')
     const allowed = ['学校', '课程', '休闲娱乐', '专业', '探索']
@@ -41,6 +98,11 @@ const openSpaceDialog = async () => {
 }
 
 const submitSpace = async () => {
+  if (!canCreateSpace.value) {
+    ElMessage.warning(explainDeny({ requireAuth: true, permission: 'space.create', minTrust: 3 }))
+    return
+  }
+
   if (!spaceForm.value.name || !spaceForm.value.category_id) return ElMessage.warning('请填写必填项')
   try {
     await request.post('/spaces/', spaceForm.value)
@@ -83,9 +145,14 @@ const submitSpace = async () => {
 
     <!-- Right: Actions -->
     <div class="flex items-center gap-x-5">
-      <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all relative">
+      <button 
+        class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all relative"
+        @click="handleOpenNotifications"
+      >
         <el-icon :size="20"><Bell /></el-icon>
-        <span class="absolute top-2 right-2.5 w-2 h-2 bg-[var(--c-danger)] rounded-full border-2 border-white"></span>
+        <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-[var(--c-danger)] text-white text-[10px] leading-4 text-center rounded-full border-2 border-white">
+          {{ unreadBadgeText }}
+        </span>
       </button>
 
       <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all">
@@ -99,8 +166,14 @@ const submitSpace = async () => {
         </div>
         <template #dropdown>
           <el-dropdown-menu class="min-w-[160px]">
-            <el-dropdown-item class="py-2.5" @click="openSpaceDialog">
-              <el-icon><Plus /></el-icon> 创建专属空间
+            <el-dropdown-item class="py-2.5" @click="router.push('/profile')">
+              个人主页
+            </el-dropdown-item>
+            <el-dropdown-item class="py-2.5" @click="ElMessage.info('研发中...')">
+              修改头像
+            </el-dropdown-item>
+            <el-dropdown-item class="py-2.5" @click="ElMessage.info('研发中...')">
+              修改用户名
             </el-dropdown-item>
             <el-dropdown-item divided class="py-2.5 text-red-500" @click="handleLogout">
               退出登录
@@ -114,11 +187,19 @@ const submitSpace = async () => {
   <!-- Create Space Dialog -->
   <el-dialog v-model="showSpaceDialog" title="创建新空间" width="480px" style="border-radius: var(--radius-card)">
     <div class="space-y-4 pt-2">
-      <div class="grid grid-cols-1 gap-4">
+      <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属模块 <span class="text-red-500">*</span></label>
           <el-select v-model="spaceForm.category_id" placeholder="选择模块" class="w-full">
             <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">空间类型</label>
+          <el-select v-model="spaceForm.type" placeholder="类型" class="w-full">
+            <el-option label="学术/课程" value="course" />
+            <el-option label="学校/校区" value="school" />
+            <el-option label="兴趣/社团" value="interest" />
           </el-select>
         </div>
       </div>
