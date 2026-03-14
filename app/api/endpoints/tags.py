@@ -24,7 +24,7 @@ async def read_tags(keyword: Optional[str] = None, page: int = 1, page_size: int
 
 @router.post("/", response_model=ResponseBase[TagResponse])
 async def create_tag(tag_in: TagCreate, current_user: User = Depends(get_current_active_user)):
-    if current_user.role not in [UserRole.MASTER, UserRole.ADMIN, UserRole.SUPER_ROOT]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ROOT]:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
     exists = await Tag.get_or_none(name=tag_in.name)
@@ -36,7 +36,7 @@ async def create_tag(tag_in: TagCreate, current_user: User = Depends(get_current
 
 @router.patch("/{tag_id}", response_model=ResponseBase[TagResponse])
 async def update_tag(tag_id: int, tag_in: TagCreate, current_user: User = Depends(get_current_active_user)):
-    if current_user.role not in [UserRole.MASTER, UserRole.ADMIN, UserRole.SUPER_ROOT]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ROOT]:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
     tag = await Tag.get_or_none(id=tag_id)
@@ -51,10 +51,11 @@ async def update_tag(tag_id: int, tag_in: TagCreate, current_user: User = Depend
 
 @router.delete("/{tag_id}")
 async def delete_tag(tag_id: int, current_user: User = Depends(get_current_active_user)):
-    if current_user.role not in [UserRole.MASTER, UserRole.ADMIN, UserRole.SUPER_ROOT]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ROOT]:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
     deleted = await Tag.filter(id=tag_id).delete()
     if not deleted:
         raise HTTPException(status_code=404, detail="Tag not found")
     return success_response({"message": "Tag deleted"})
+

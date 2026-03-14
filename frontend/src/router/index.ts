@@ -1,107 +1,131 @@
-import { createRouter, createWebHistory } from "vue-router";
-import type { RouteRecordRaw } from "vue-router";
+import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import NProgress from 'nprogress'
 
-import { useAuthStore } from "@/stores/auth";
-import NProgress from "nprogress";
+import { useAuthStore } from '@/stores/auth'
 
 const routes: Array<RouteRecordRaw> = [
   {
-    path: "/",
-    name: "Landing",
-    component: () => import("@/views/public/HomeView.vue"),
-    meta: { title: "首页" },
+    path: '/',
+    name: 'Landing',
+    component: () => import('@/views/public/HomeView.vue'),
+    meta: { title: '首页' },
   },
   {
-    path: "/home",
-    name: "HomeDashboard",
-    component: () => import("@/views/app/HomeDashboardView.vue"),
-    meta: { title: "主页", requiresAuth: false }, // Allowing mock view without real auth for now
+    path: '/home',
+    name: 'HomeDashboard',
+    component: () => import('@/views/app/HomeDashboardView.vue'),
+    meta: { title: '主页', requiresAuth: false },
   },
   {
-    path: "/spaces",
-    name: "Spaces",
-    component: () => import("@/views/app/SpacesView.vue"),
-    meta: { title: "讨论空间", requiresAuth: false },
+    path: '/spaces',
+    name: 'Spaces',
+    component: () => import('@/views/app/SpacesView.vue'),
+    meta: { title: '讨论空间', requiresAuth: false },
   },
   {
-    path: "/materials",
-    name: "Materials",
-    component: () => import("@/views/app/MaterialsView.vue"),
-    meta: { title: "资料汇编", requiresAuth: false },
-  },
-
-  {
-    path: "/app/feed",
-    name: "Feed",
-    component: () => import("@/views/app/FeedView.vue"),
-    meta: { title: "发现", requiresAuth: true },
+    path: '/materials',
+    name: 'Materials',
+    component: () => import('@/views/app/MaterialsView.vue'),
+    meta: { title: '资料汇编', requiresAuth: false },
   },
   {
-    path: "/explore",
-    name: "Explore",
-    component: () => import("@/views/app/ExploreSpacesView.vue"),
-    meta: { title: "无限探索", requiresAuth: true },
+    path: '/app/feed',
+    name: 'Feed',
+    component: () => import('@/views/app/FeedView.vue'),
+    meta: { title: '发现', requiresAuth: true },
   },
   {
-    path: "/me/overview",
-    name: "MeOverview",
-    component: () => import("@/views/app/MeOverviewView.vue"),
-    meta: { title: "我的主页", requiresAuth: true },
+    path: '/explore',
+    name: 'Explore',
+    component: () => import('@/views/app/ExploreSpacesView.vue'),
+    meta: { title: '无限探索', requiresAuth: true },
   },
   {
-    path: "/me/posts",
-    name: "MePosts",
-    component: () => import("@/views/app/MyPostsView.vue"),
-    meta: { title: "我的帖子", requiresAuth: true },
+    path: '/me/overview',
+    name: 'MeOverview',
+    component: () => import('@/views/app/MeOverviewView.vue'),
+    meta: { title: '我的主页', requiresAuth: true },
   },
   {
-    path: "/me/favorites",
-    name: "MeFavorites",
-    component: () => import("@/views/app/MyFavoritePostsView.vue"),
-    meta: { title: "我的收藏", requiresAuth: true },
+    path: '/me/posts',
+    name: 'MePosts',
+    component: () => import('@/views/app/MyPostsView.vue'),
+    meta: { title: '我的帖子', requiresAuth: true },
   },
   {
-    path: "/me/materials",
-    name: "MeMaterials",
-    component: () => import("@/views/app/MyMaterialsView.vue"),
-    meta: { title: "我的资料库", requiresAuth: true },
+    path: '/me/favorites',
+    name: 'MeFavorites',
+    component: () => import('@/views/app/MyFavoritePostsView.vue'),
+    meta: { title: '我的收藏', requiresAuth: true },
   },
   {
-    path: "/notifications",
-    name: "Notifications",
-    component: () => import("@/views/app/NotificationsView.vue"),
-    meta: { title: "消息中心", requiresAuth: true },
-  }
-];
+    path: '/me/materials',
+    name: 'MeMaterials',
+    component: () => import('@/views/app/MyMaterialsView.vue'),
+    meta: { title: '我的资料库', requiresAuth: true },
+  },
+  {
+    path: '/notifications',
+    name: 'Notifications',
+    component: () => import('@/views/app/NotificationsView.vue'),
+    meta: { title: '消息中心', requiresAuth: true },
+  },
+]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
-});
+})
 
 // Route Guards — use return-only style (Vue Router 4)
 router.beforeEach(async (to) => {
-  NProgress.start();
+  NProgress.start()
 
-  const authStore = useAuthStore();
+  const authStore = useAuthStore()
 
   if (to.meta.title) {
-    document.title = `${to.meta.title} - Forum`;
+    document.title = `${to.meta.title} - Forum`
   }
 
   // Ensure initial user state is loaded if token exists
   if (authStore.isAuthenticated && !authStore.user) {
-    await authStore.fetchMe();
+    await authStore.fetchMe()
+  }
+
+  // Load authorization snapshot (from codex permission system)
+  if (!authStore.authorizationLoaded) {
+    await authStore.fetchAuthorization()
   }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return { path: "/", query: { redirect: to.fullPath, showLogin: "true" } };
+    return { path: '/', query: { redirect: to.fullPath, showLogin: 'true' } }
+  }
+
+  // Trust level guard (from codex)
+  const requiredTrust = Number(to.meta.requiredTrust ?? -1)
+  if (requiredTrust >= 0 && !authStore.hasTrustLevel(requiredTrust)) {
+    ElMessage.warning(`当前功能需要信任等级 ${requiredTrust}`)
+    return false
+  }
+
+  // Permission guard (from codex)
+  const requiredPermissions = Array.isArray(to.meta.requiredPermissions)
+    ? (to.meta.requiredPermissions as string[])
+    : []
+
+  for (const permission of requiredPermissions) {
+    if (!authStore.hasPermission(permission)) {
+      ElMessage.warning(`权限不足：${permission}`)
+      return false
+    }
   }
   // return undefined = allow navigation
-});
+})
 
 router.afterEach(() => {
-  NProgress.done();
-});
+  NProgress.done()
+})
 
-export default router;
+export default router

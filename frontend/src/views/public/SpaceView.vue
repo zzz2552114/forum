@@ -237,21 +237,15 @@ const toggleBookmark = async (mat: any) => {
   }
 }
 
-const downloadFile = async (mat: any) => {
+const downloadFile = (mat: any) => {
   if (!mat) return;
-  try {
-    const response = await request.post(`/resources/${mat.id}/download`, {}, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response as any]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = mat.filename || `${mat.title}.pdf`; // generic fallback
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    mat.download_count = (mat.download_count || 0) + 1;
-  } catch (e) {
-    ElMessage.error('下载遇到错误');
+  const token = localStorage.getItem('token');
+  if (!token) {
+    ElMessage.warning('请先登录再下载');
+    return;
   }
+  window.open(`/api/v1/resources/${mat.id}/download?token=${encodeURIComponent(token)}`, '_blank');
+  mat.download_count = (mat.download_count || 0) + 1;
 }
 
 const toggleSubscribe = () => {

@@ -342,14 +342,15 @@ const closeEditor = () => {
   isTradePost.value = false
 }
 
-const downloadFile = (url: string) => {
-  if (!url || url === '#') return;
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+const downloadFile = (mat: any) => {
+  if (!mat) return;
+  const token = localStorage.getItem('token');
+  if (!token) {
+    ElMessage.warning('请先登录再下载');
+    return;
+  }
+  window.open(`/api/v1/resources/${mat.id}/download?token=${encodeURIComponent(token)}`, '_blank');
+  mat.download_count = (mat.download_count || 0) + 1;
 }
 
 const sections = ref([
@@ -751,7 +752,7 @@ const sections = ref([
                       {{ mat.download_count }} 次下载
                     </div>
                     <button
-                      @click.stop="downloadFile(mat.versions?.[0]?.file_url)"
+                      @click.stop="downloadFile(mat)"
                       class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white text-[var(--c-indigo)] border border-[var(--c-navy)]/10 hover:border-[var(--c-indigo)] group-hover:bg-[var(--c-indigo)] group-hover:text-white transition-all shadow-sm"
                     >
                       <el-icon :size="20"><Document /></el-icon>

@@ -146,10 +146,25 @@ async def bookmark_resource(resource_id: int, current_user: User = Depends(get_c
     
     return success_response({"message": "Resource bookmarked successfully", "bookmarked": True})
 
-@router.post("/{resource_id}/download")
-async def download_resource(resource_id: int, current_user: User = Depends(get_current_active_user)):
+@router.get("/{resource_id}/download")
+async def download_resource(resource_id: int, token: str = Query(...)):
+    """Download a resource file. Accepts token as query parameter for browser-native download."""
     from app.models.interactions import ResourceDownload
-    resource = await Resource.get_or_none(id=resource_id).prefetch_related("versions__file")
+    from jose import jwt, JWTError
+    from app.core.config import settings as app_settings
+    
+    # Validate token manually (since we're using query param, not Bearer header)
+    try:
+        payload = jwt.decode(token, app_settings.SECRET_KEY, algorithms=[app_settings.ALGORITHM])
+        user_id = int(payload.get("sub"))
+    except (JWTError, ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    current_user = await User.get_or_none(id=user_id)
+    if not current_user or not current_user.is_active:
+        raise HTTPException(status_code=401, detail="Invalid or inactive user")
+    
+    resource = await Resource.get_or_none(id=resource_id)
     if not resource:
         raise HTTPException(status_code=404, detail="Resource not found")
         
@@ -159,19 +174,23 @@ async def download_resource(resource_id: int, current_user: User = Depends(get_c
     from tortoise.expressions import F
     await Resource.filter(id=resource.id).update(download_count=F("download_count") + 1)
     
-    # Get the latest version file
-    if not resource.versions:
+    # Get the latest version explicitly
+    latest_version = await ResourceVersion.filter(resource_id=resource_id).order_by("-id").first()
+    if not latest_version:
         raise HTTPException(status_code=404, detail="Resource has no file versions")
     
-    latest_version = resource.versions[-1]
-    file_record = latest_version.file
+    # Get the file record explicitly
+    file_record = await File.get_or_none(id=latest_version.file_id)
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File record not found")
     
-    file_path = file_record.url.lstrip("/")
-    if not file_record or not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Physical file not found")
+    # Convert DB url (/static/uploads/xxx) to local path (uploads/xxx)
+    local_path = file_record.url.replace("/static/", "")
+    if not os.path.exists(local_path):
+        raise HTTPException(status_code=404, detail=f"Physical file not found at {local_path}")
         
     return FileResponse(
-        path=file_path, 
+        path=local_path, 
         filename=file_record.filename or resource.title,
         media_type=file_record.content_type
     )
