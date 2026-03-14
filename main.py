@@ -21,9 +21,17 @@ logger.add(
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
 )
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await migrate_user_roles_and_trust()
+    yield
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan,
 )
 
 # Set all CORS enabled origins
@@ -41,11 +49,6 @@ app.include_router(realtime_chat_router)
 app.include_router(ai_notification_ws_router)
 
 init_db(app)
-
-
-@app.on_event("startup")
-async def run_authz_migrations() -> None:
-    await migrate_user_roles_and_trust()
 
 
 @app.get("/health", tags=["health"])

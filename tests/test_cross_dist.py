@@ -20,6 +20,13 @@ async def test_cross_space_and_tags():
                 "password": "testpassword123",
             },
         )
+        
+        from app.models.user import User
+        from app.models.enums import UserRole, TrustLevel
+        user = await User.get(username=username)
+        user.role = UserRole.ADMIN
+        user.trust_level = TrustLevel.CONTRIBUTOR
+        await user.save(update_fields=["role", "trust_level"])
 
         login_response = client.post(
             "/api/v1/auth/login",

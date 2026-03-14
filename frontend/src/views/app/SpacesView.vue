@@ -237,6 +237,10 @@ onMounted(() => {
 })
 
 const handleJoinSpace = async () => {
+  if (!authStore.isAuthenticated) {
+    ElMessage.warning('请先登录再操作')
+    return
+  }
   if (!activeSpaceId.value) return
   isJoinLoading.value = true
   try {
