@@ -28,8 +28,8 @@ const handleUploadAvatar = () => {
       <HomeHeader />
     </div>
 
-    <div class="flex-1 flex overflow-hidden justify-center py-10">
-      <div class="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-[var(--c-navy)]/5 p-8 flex flex-col items-center">
+    <div class="flex-1 overflow-y-auto flex justify-center py-10 px-4 custom-scrollbar">
+      <div class="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-[var(--c-navy)]/5 p-8 flex flex-col items-center h-fit">
         <!-- Back Button -->
         <div class="w-full flex justify-start mb-6">
            <button @click="router.back()" class="flex items-center gap-2 text-[var(--c-navy)]/60 hover:text-[var(--c-navy)] transition-colors">

@@ -62,11 +62,11 @@ const submitComment = async () => {
   if (!newComment.value.trim() || !selectedPostId.value) return
   isSubmittingComment.value = true
   try {
-    const payload: any = { content: newComment.value }
+    const payload: any = { content: newComment.value, post_id: selectedPostId.value }
     if (replyToId.value) {
       payload.parent_id = replyToId.value
     }
-    await request.post(`/posts/${selectedPostId.value}/comments/`, payload)
+    await request.post(`/comments/`, payload)
     newComment.value = ''
     replyToId.value = null
     ElMessage.success('评论发布成功')
@@ -187,7 +187,9 @@ const fetchResourcesForSpace = async () => {
       params.resource_type = 'policy';
     }
     const res: any = await request.get(`/resources/`, { params });
-    resources.value = res.items || [];
+    const fetchedResources = res.items || [];
+    // 按照上传时间倒序排列
+    resources.value = fetchedResources.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   } catch(e) {
     console.error('Failed to fetch resources', e)
   }
@@ -547,7 +549,7 @@ const sections = ref([
           </div>
 
           <!-- Realtime Chat State -->
-          <div v-else-if="activeSectionId === 2" class="h-full px-0 py-0 pb-16">
+          <div v-else-if="activeSectionId === 2" class="h-[calc(100vh-[var(--header-height,64px)]-8rem)] min-h-[500px] w-full">
              <SpaceRealtimeChatPanel 
                v-if="activeSpaceId" 
                :space-id="activeSpaceId" 

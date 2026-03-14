@@ -1,5 +1,5 @@
 <template>
-  <section class="bg-white rounded-[var(--radius-card)] border border-[var(--c-navy)]/10 shadow-[var(--shadow-card-light)] p-5 space-y-4">
+  <section class="flex flex-col h-full bg-white rounded-[var(--radius-card)] border border-[var(--c-navy)]/10 shadow-[var(--shadow-card-light)] p-5">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h3 class="text-lg font-serif font-bold text-[var(--c-navy)]">即时聊天区</h3>
@@ -11,7 +11,7 @@
       </div>
     </header>
 
-    <div class="h-72 overflow-y-auto rounded-xl border border-[var(--c-navy)]/10 bg-[var(--c-fog)] p-3 space-y-2">
+    <div class="flex-1 overflow-y-auto rounded-xl border border-[var(--c-navy)]/10 bg-[var(--c-fog)] p-3 space-y-2 mt-4 mb-4 custom-scrollbar">
       <div
         v-for="(event, idx) in messages"
         :key="`${event.event_id}-${idx}`"
@@ -28,7 +28,7 @@
       <p v-if="messages.length === 0" class="text-sm text-[var(--c-navy)]/45">暂无消息。</p>
     </div>
 
-    <div class="space-y-2">
+    <div class="shrink-0 space-y-2">
       <div class="flex gap-3">
         <input
           v-model="draft"
