@@ -43,3 +43,6 @@ htmlcov/
 # Tooling
 .agents/
 .spec/
+
+# Uploads
+uploads/
