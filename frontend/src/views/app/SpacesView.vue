@@ -65,7 +65,7 @@ const fetchSubscribedSpaces = async () => {
   if (!authStore.isAuthenticated) return
   try {
     const res: any = await request.get('/spaces/me/subscriptions')
-    subscribedSpaces.value = res.items || []
+    subscribedSpaces.value = Array.isArray(res) ? res : (res.items || [])
   } catch (e: any) {
     console.error('Failed to fetch subscribed spaces', e)
   }
@@ -175,18 +175,16 @@ onMounted(async () => {
     activeSpaceId.value = querySpaceId
   } else if (!activeSpaceId.value && subscribedSpaces.value.length > 0) {
     activeSpaceId.value = subscribedSpaces.value[0].id
-  } else if (!activeSpaceId.value && allSpaces.value.length > 0) {
-    const schoolCategory = categories.value.find((c: any) => c.name === '学校')
-    const targetSpaces = allSpaces.value.filter((s: any) => schoolCategory ? s.category_id === schoolCategory.id : true)
-    activeSpaceId.value = targetSpaces.length > 0 ? targetSpaces[0].id : allSpaces.value[0].id
   }
   
-  updateRecentSpaces()
+  if (activeSpaceId.value) {
+    updateRecentSpaces()
 
-  if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
-    fetchPostsForSpace()
-  } else if ([3, 4].includes(activeSectionId.value)) {
-    fetchResourcesForSpace()
+    if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
+      fetchPostsForSpace()
+    } else if ([3, 4].includes(activeSectionId.value)) {
+      fetchResourcesForSpace()
+    }
   }
 })
 
@@ -251,6 +249,10 @@ const activeSection = computed(() => {
 
 // Create Post State
 
+const isAdmin = computed(() => {
+  return authStore.user?.role === 'admin' || authStore.user?.role === 'super_root'
+})
+
 const downloadFile = (mat: any) => {
   if (!mat) return;
   const token = localStorage.getItem('token');
@@ -258,6 +260,12 @@ const downloadFile = (mat: any) => {
     ElMessage.warning('请先登录再下载');
     return;
   }
+  
+  if (!isSubscribed.value && !isAdmin.value) {
+    ElMessage.error('您必须先加入该空间才能下载资源');
+    return;
+  }
+
   window.open(`/api/v1/resources/${mat.id}/download?token=${encodeURIComponent(token)}`, '_blank');
   mat.download_count = (mat.download_count || 0) + 1;
 }
@@ -354,9 +362,18 @@ const sections = ref([
         <div
           class="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar bg-[var(--c-fog)]/30"
         >
+          <!-- No Active Space State -->
+          <div v-if="!activeSpace" class="h-full flex flex-col items-center justify-center text-[var(--c-navy)]/40 min-h-[50vh]">
+            <h2 class="text-2xl font-bold mb-2 text-[var(--c-navy)]">欢迎来到讨论空间</h2>
+            <p>请在左侧选择已加入的空间，或探索全站内容</p>
+            <button @click="router.push('/explore-spaces')" class="mt-6 px-6 py-2.5 bg-[var(--c-gold)] text-white rounded-full font-medium hover:opacity-90 transition-opacity shadow-sm">
+              探索空间
+            </button>
+          </div>
+
           <!-- Empty State Mockup (only for sections with no implemented content yet) -->
           <div
-            v-if="[6, 7].includes(activeSectionId)"
+            v-else-if="[6, 7].includes(activeSectionId)"
             class="h-full flex flex-col items-center justify-center text-[var(--c-navy)]/40 mt-20"
           >
             <div

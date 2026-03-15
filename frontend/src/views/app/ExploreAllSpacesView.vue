@@ -12,10 +12,12 @@ const spaces = ref<any[]>([])
 const searchQuery = ref('')
 const activeNames = ref<string[]>([])
 
+const allowedCategories = ['学校', '课程', '休闲娱乐', '专业', '探索']
+
 const fetchCategories = async () => {
   try {
     const res: any = await request.get('/categories/')
-    categories.value = res || []
+    categories.value = (res || []).filter((c: any) => allowedCategories.includes(c.name))
   } catch (e) {
     console.error('Failed to fetch categories', e)
   }

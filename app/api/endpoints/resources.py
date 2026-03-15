@@ -172,7 +172,18 @@ async def download_resource(resource_id: int, token: str = Query(...)):
         raise HTTPException(status_code=404, detail="Resource not found")
         
     from app.api.deps import ensure_space_subscription
-    await ensure_space_subscription(current_user, resource.space_id)
+    
+    # Check if the user is subscribed to the direct space or the parent school space
+    try:
+        await ensure_space_subscription(current_user, resource.space_id)
+    except HTTPException as e:
+        if resource.school_space_id and resource.school_space_id != resource.space_id:
+            try:
+                await ensure_space_subscription(current_user, resource.school_space_id)
+            except HTTPException:
+                raise e
+        else:
+            raise e
         
     # Record download
     await ResourceDownload.create(user_id=current_user.id, resource_id=resource_id)

@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import HomeHeader from "@/components/HomeHeader.vue";
 import FeatureCard from "@/components/FeatureCard.vue";
 import request from "@/utils/request";
-import { ElMessage } from "element-plus";
 
 const router = useRouter();
 
@@ -16,13 +15,16 @@ const newMaterials = ref<any[]>([]);
 
 const fetchDashboardData = async () => {
   try {
-    const spacesRes: any = await request.get('/spaces/me/subscriptions');
-    joinedSpaces.value = (spacesRes.items || []).slice(0, 5); // Take up to 5 spaces
+    const token = localStorage.getItem('token');
+    if (token) {
+      const spacesRes: any = await request.get('/spaces/me/subscriptions');
+      joinedSpaces.value = (Array.isArray(spacesRes) ? spacesRes : spacesRes.items || []).slice(0, 5);
+    }
 
     const materialsRes: any = await request.get('/resources/', { params: { page: 1, page_size: 5 }});
-    newMaterials.value = (materialsRes.items || []).slice(0, 5);
+    newMaterials.value = (Array.isArray(materialsRes) ? materialsRes : materialsRes.items || []).slice(0, 5);
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || e.message || "获取大盘数据失败");
+    console.error("获取大盘数据失败", e);
   }
 };
 
@@ -136,6 +138,7 @@ const explorations = ref([
 
             <div
               class="h-[72px] flex items-center justify-center px-4 rounded-xl hover:bg-white cursor-pointer group transition-all mt-2 border border-dashed border-[var(--c-navy)]/20 hover:border-[var(--c-gold)]"
+              @click="router.push('/explore-spaces')"
             >
               <div
                 class="text-[var(--c-navy)]/50 group-hover:text-[var(--c-gold)] font-medium flex items-center gap-x-2"
