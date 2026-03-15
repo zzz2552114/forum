@@ -43,6 +43,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: '无限探索', requiresAuth: true },
   },
   {
+    path: '/explore-all',
+    name: 'ExploreAllSpaces',
+    component: () => import('@/views/app/ExploreAllSpacesView.vue'),
+    meta: { title: '发现空间', requiresAuth: true },
+  },
+  {
     path: '/me/overview',
     name: 'MeOverview',
     component: () => import('@/views/app/MeOverviewView.vue'),

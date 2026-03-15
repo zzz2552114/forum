@@ -106,3 +106,25 @@ async def unsubscribe_space(
 
         await Space.filter(id=space_id).update(subscriber_count=F("subscriber_count") - 1)
     return success_response({"message": "Subscription removed"})
+
+
+@router.get("/me/subscriptions", response_model=ResponseBase[List[SpaceResponse]])
+async def get_my_subscriptions(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get all spaces the current user has subscribed to."""
+    subscriptions = await SpaceSubscription.filter(user_id=current_user.id).prefetch_related("space", "space__owner")
+    spaces = []
+    for sub in subscriptions:
+        space = sub.space
+        spaces.append(
+            SpaceResponse(
+                id=space.id,
+                name=space.name,
+                description=space.description,
+                category_id=space.category_id,
+                owner_id=space.owner.id if space.owner else None,
+                created_at=space.created_at,
+            )
+        )
+    return success_response(spaces)

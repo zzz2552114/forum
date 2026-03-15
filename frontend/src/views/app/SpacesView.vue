@@ -13,14 +13,13 @@ import CreatePostEditor from '@/features/spaces/CreatePostEditor.vue'
 import SpaceSidebar from '@/features/spaces/SpaceSidebar.vue'
 import SpaceSectionMenu from '@/features/spaces/SpaceSectionMenu.vue'
 import HomeHeader from '@/components/HomeHeader.vue'
-import { ArrowLeft, CaretTop, CaretBottom, ChatDotRound, StarFilled, MoreFilled, ArrowUpBold, View, Loading } from '@element-plus/icons-vue'
+import { ArrowLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 // State
 const categories = ref<any[]>([])
-const spaces = ref<any[]>([])
 const activeSpaceId = ref<number | null>(null)
 const activeSectionId = ref<number>(1) // 1: Posts, 3: Library, 4: Policy, 5: Trade
 const isJoinLoading = ref(false)
@@ -49,20 +48,60 @@ const fetchCategories = async () => {
 }
 
 // Fetch all spaces
-const fetchSpaces = async () => {
+const allSpaces = ref<any[]>([])
+const subscribedSpaces = ref<any[]>([])
+const recentSpaces = ref<any[]>([])
+
+const fetchAllSpaces = async () => {
   try {
     const res: any = await request.get('/spaces/')
-    spaces.value = res || []
-    
-    if (spaces.value.length > 0 && !activeSpaceId.value) {
-      // Find the "学校" category to get its spaces
-      const schoolCategory = categories.value.find((c: any) => c.name === '学校')
-      const targetSpaces = spaces.value.filter((s: any) => schoolCategory ? s.category_id === schoolCategory.id : true)
-      activeSpaceId.value = targetSpaces.length > 0 ? targetSpaces[0].id : spaces.value[0].id
-    }
+    allSpaces.value = res || []
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || e.message || '获取空间列表失败')
   }
+}
+
+const fetchSubscribedSpaces = async () => {
+  if (!authStore.isAuthenticated) return
+  try {
+    const res: any = await request.get('/spaces/me/subscriptions')
+    subscribedSpaces.value = res.items || []
+  } catch (e: any) {
+    console.error('Failed to fetch subscribed spaces', e)
+  }
+}
+
+const loadRecentSpaces = () => {
+  try {
+    const stored = localStorage.getItem('recent_spaces')
+    if (stored) {
+      recentSpaces.value = JSON.parse(stored)
+    }
+  } catch (e) {}
+}
+
+const saveRecentSpaces = () => {
+  localStorage.setItem('recent_spaces', JSON.stringify(recentSpaces.value))
+}
+
+const updateRecentSpaces = () => {
+  if (!activeSpaceId.value) return
+  if (subscribedSpaces.value.some(s => s.id === activeSpaceId.value)) {
+    // If subscribed, remove from recent if it's there
+    recentSpaces.value = recentSpaces.value.filter(s => s.id !== activeSpaceId.value)
+    saveRecentSpaces()
+    return
+  }
+
+  const space = allSpaces.value.find(s => s.id === activeSpaceId.value)
+  if (!space) return
+
+  recentSpaces.value = recentSpaces.value.filter(s => s.id !== space.id)
+  recentSpaces.value.unshift(space)
+  if (recentSpaces.value.length > 10) {
+    recentSpaces.value = recentSpaces.value.slice(0, 10)
+  }
+  saveRecentSpaces()
 }
 
 const fetchPostsForSpace = async () => {
@@ -106,6 +145,7 @@ const fetchResourcesForSpace = async () => {
 
 watch(activeSpaceId, () => {
   goBackToPosts()
+  updateRecentSpaces()
   if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
     fetchPostsForSpace()
   } else if ([3, 4].includes(activeSectionId.value)) {
@@ -122,31 +162,65 @@ watch(activeSectionId, () => {
   }
 })
 
-onMounted(() => {
-  fetchCategories()
-  fetchSpaces().then(() => {
-    if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
-      fetchPostsForSpace()
-    } else if ([3, 4].includes(activeSectionId.value)) {
-      fetchResourcesForSpace()
-    }
-  })
+onMounted(async () => {
+  await fetchCategories()
+  await fetchAllSpaces()
+  if (authStore.isAuthenticated) {
+    await fetchSubscribedSpaces()
+  }
+  loadRecentSpaces()
+  
+  const querySpaceId = Number(router.currentRoute.value.query.spaceId)
+  if (querySpaceId && !isNaN(querySpaceId)) {
+    activeSpaceId.value = querySpaceId
+  } else if (!activeSpaceId.value && subscribedSpaces.value.length > 0) {
+    activeSpaceId.value = subscribedSpaces.value[0].id
+  } else if (!activeSpaceId.value && allSpaces.value.length > 0) {
+    const schoolCategory = categories.value.find((c: any) => c.name === '学校')
+    const targetSpaces = allSpaces.value.filter((s: any) => schoolCategory ? s.category_id === schoolCategory.id : true)
+    activeSpaceId.value = targetSpaces.length > 0 ? targetSpaces[0].id : allSpaces.value[0].id
+  }
+  
+  updateRecentSpaces()
+
+  if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
+    fetchPostsForSpace()
+  } else if ([3, 4].includes(activeSectionId.value)) {
+    fetchResourcesForSpace()
+  }
 })
 
 const handleJoinSpace = async () => {
   if (!authStore.isAuthenticated) {
     ElMessage.warning('请先登录再操作')
+    router.push('/?showLogin=true')
     return
   }
   if (!activeSpaceId.value) return
   isJoinLoading.value = true
   try {
-    await request.put(`/spaces/${activeSpaceId.value}/subscriptions/me/`)
+    await request.put(`/spaces/${activeSpaceId.value}/subscriptions/me`)
     ElMessage.success('已加入空间！')
+    await fetchSubscribedSpaces()
+    updateRecentSpaces()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || e.response?.data?.detail || e.message || '加入失败')
   } finally {
     isJoinLoading.value = false
+  }
+}
+
+const handleCommand = async (command: string) => {
+  if (command === 'leave') {
+    if (!authStore.isAuthenticated) return
+    try {
+      await request.delete(`/spaces/${activeSpaceId.value}/subscriptions/me`)
+      ElMessage.success('已退出空间')
+      await fetchSubscribedSpaces()
+      updateRecentSpaces()
+    } catch (e: any) {
+      ElMessage.error(e.response?.data?.message || '退出失败')
+    }
   }
 }
 
@@ -163,8 +237,12 @@ const handleOpenEditor = () => {
 
 
 
+const isSubscribed = computed(() => {
+  return subscribedSpaces.value.some(s => s.id === activeSpaceId.value)
+})
+
 const activeSpace = computed(() => {
-  return spaces.value.find((s: any) => s.id === activeSpaceId.value)
+  return allSpaces.value.find((s: any) => s.id === activeSpaceId.value)
 })
 
 const activeSection = computed(() => {
@@ -172,9 +250,6 @@ const activeSection = computed(() => {
 })
 
 // Create Post State
-const newComment = ref('')
-const replyToId = ref<number | null>(null)
-const isSubmittingComment = ref(false)
 
 const downloadFile = (mat: any) => {
   if (!mat) return;
@@ -209,7 +284,8 @@ const sections = ref([
       <!-- Left Column: Spaces List (2 Cols ~ 16.6%) -->
       <SpaceSidebar 
         :categories="categories" 
-        :spaces="spaces" 
+        :spaces="subscribedSpaces" 
+        :recent-spaces="recentSpaces"
         v-model:active-space-id="activeSpaceId" 
       />
 
@@ -241,14 +317,36 @@ const sections = ref([
           </div>
           
           <div class="flex items-center gap-x-4">
-            <button v-if="activeSpace" @click="handleJoinSpace" :disabled="isJoinLoading" class="px-4 py-1.5 rounded-full bg-[var(--c-gold)] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
-              {{ isJoinLoading ? '加入中...' : '加入空间' }}
-            </button>
-            <button
-              class="w-8 h-8 rounded hover:bg-[var(--c-fog)] flex items-center justify-center text-[var(--c-navy)]/60 hover:text-[var(--c-navy)] transition-colors"
-            >
-              <el-icon :size="20"><Setting /></el-icon>
-            </button>
+            <template v-if="activeSpace">
+              <button 
+                v-if="!isSubscribed"
+                @click="handleJoinSpace" 
+                :disabled="isJoinLoading" 
+                class="px-4 py-1.5 rounded-full bg-[var(--c-gold)] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {{ isJoinLoading ? '加入中...' : '加入空间' }}
+              </button>
+              <button 
+                v-else
+                disabled
+                class="px-4 py-1.5 rounded-full bg-gray-100 text-[var(--c-navy)]/40 text-sm font-medium cursor-default border border-[var(--c-navy)]/5"
+              >
+                已加入
+              </button>
+            </template>
+            <el-dropdown trigger="click" @command="handleCommand">
+              <button
+                class="w-8 h-8 rounded hover:bg-[var(--c-fog)] flex items-center justify-center text-[var(--c-navy)]/60 hover:text-[var(--c-navy)] transition-colors"
+                title="设置"
+              >
+                <el-icon :size="20"><Setting /></el-icon>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="leave" :disabled="!isSubscribed" class="text-red-500">退出该空间</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </div>
 

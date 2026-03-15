@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Literal, Sequence
@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 
 from app.core.config import settings
 from app.models.enums import TrustLevel, UserRole
-from app.models.interactions import SpaceMaster
+from app.models.interactions import SpaceMaster, SpaceSubscription
 from app.models.user import User
 from app.schemas.token import TokenPayload
 
@@ -200,6 +200,22 @@ async def ensure_space_master_or_admin(
         required_permission=required_permission,
         reason="Space moderator privileges required",
     )
+
+
+async def ensure_space_subscription(user: User, space_id: int) -> None:
+    """Ensure the user has subscribed to the space, or is a space master/admin."""
+    if is_platform_admin(user):
+        return
+
+    is_sub = await SpaceSubscription.filter(user_id=user.id, space_id=space_id).exists()
+    if is_sub:
+        return
+
+    is_master = await SpaceMaster.filter(user_id=user.id, space_id=space_id).exists()
+    if is_master:
+        return
+
+    raise_forbidden(reason="You must join the space to perform this action.")
 
 
 KNOWN_PERMISSIONS: set[str] = {

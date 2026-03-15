@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import time
 import uuid
 
@@ -63,6 +63,9 @@ def test_notification_events_like_bookmark_reply_and_chat_mention():
 
         suffix = uuid.uuid4().hex[:6]
         space_id, post_id = _create_space_and_post(client, alice_headers, suffix)
+
+        sub_resp = client.put(f"/api/v1/spaces/{space_id}/subscriptions/me", headers=bob_headers)
+        assert sub_resp.status_code == 200
 
         like_resp = client.put(f"/api/v1/posts/{post_id}/likes/me", headers=bob_headers)
         assert like_resp.status_code == 200

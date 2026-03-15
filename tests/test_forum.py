@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 
 from fastapi.testclient import TestClient
 
@@ -39,6 +39,10 @@ def test_posts_and_comments_flow():
         )
         assert space_response.status_code == 200
         space_id = space_response.json()["data"]["id"]
+
+        # BASIC user subscribes to the space
+        sub_response = client.put(f"/api/v1/spaces/{space_id}/subscriptions/me", headers=user_headers)
+        assert sub_response.status_code == 200
 
         # BASIC user creates post
         post_response = client.post(

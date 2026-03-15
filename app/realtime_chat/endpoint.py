@@ -275,6 +275,21 @@ async def websocket_chat_room(websocket: WebSocket, space_id: int, section_id: i
         )
         return
 
+    from app.api.deps import ensure_space_subscription
+    from fastapi import HTTPException
+    
+    if not sender:
+        await websocket.accept()
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="authentication required")
+        return
+        
+    try:
+        await ensure_space_subscription(sender, space_id)
+    except HTTPException:
+        await websocket.accept()
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="not subscribed to space")
+        return
+
     room = _room_key(space_id, section_id)
     last_event_id = _parse_last_event_id(websocket.query_params.get("last_event_id"))
 

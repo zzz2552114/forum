@@ -16,8 +16,8 @@ const newMaterials = ref<any[]>([]);
 
 const fetchDashboardData = async () => {
   try {
-    const spacesRes: any = await request.get('/spaces/');
-    joinedSpaces.value = (spacesRes || []).slice(0, 5); // Take up to 5 spaces
+    const spacesRes: any = await request.get('/spaces/me/subscriptions');
+    joinedSpaces.value = (spacesRes.items || []).slice(0, 5); // Take up to 5 spaces
 
     const materialsRes: any = await request.get('/resources/', { params: { page: 1, page_size: 5 }});
     newMaterials.value = (materialsRes.items || []).slice(0, 5);

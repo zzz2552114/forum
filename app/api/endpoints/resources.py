@@ -65,6 +65,9 @@ async def create_resource(resource_in: ResourceCreate, current_user: User = Depe
     if not space:
         raise HTTPException(status_code=404, detail="Space not found")
         
+    from app.api.deps import ensure_space_subscription
+    await ensure_space_subscription(current_user, space.id)
+        
     file = await File.get_or_none(id=resource_in.file_id)
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
@@ -167,6 +170,9 @@ async def download_resource(resource_id: int, token: str = Query(...)):
     resource = await Resource.get_or_none(id=resource_id)
     if not resource:
         raise HTTPException(status_code=404, detail="Resource not found")
+        
+    from app.api.deps import ensure_space_subscription
+    await ensure_space_subscription(current_user, resource.space_id)
         
     # Record download
     await ResourceDownload.create(user_id=current_user.id, resource_id=resource_id)

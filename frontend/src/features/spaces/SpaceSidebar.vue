@@ -4,12 +4,18 @@ import { ref, onMounted } from 'vue'
 const props = defineProps<{
   categories: any[]
   spaces: any[]
+  recentSpaces?: any[]
   activeSpaceId: number | null
 }>()
 
 const emit = defineEmits(['update:activeSpaceId'])
 
 const expandedCategories = ref<number[]>([])
+const recentExpanded = ref(true)
+
+const toggleRecent = () => {
+  recentExpanded.value = !recentExpanded.value
+}
 
 onMounted(() => {
   // Wait to expand categories when they arrive
@@ -89,6 +95,57 @@ const toggleCategory = (id: number) => {
               </div>
               <div class="text-white/40 text-xs truncate">
                 {{ space.member_count || 0 }} 人加入
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Recent Spaces Section -->
+      <div v-if="recentSpaces && recentSpaces.length > 0" class="mb-4 mt-6 border-t border-white/10 pt-4">
+        <div 
+          class="px-5 py-2 flex items-center justify-between text-white/50 text-xs font-bold tracking-wider cursor-pointer hover:text-white/80 transition-colors"
+          @click="toggleRecent()"
+        >
+          <span>最近浏览</span>
+          <span>{{ recentExpanded ? '▼' : '▶' }}</span>
+        </div>
+        
+        <div v-show="recentExpanded" class="px-3 space-y-2 mt-1">
+          <div
+            v-for="space in recentSpaces"
+            :key="space.id"
+            class="group flex items-center gap-x-3 p-2 rounded-[16px] cursor-pointer transition-all relative"
+            :class="activeSpaceId === space.id ? 'bg-white/10' : 'hover:bg-white/5'"
+            @click="emit('update:activeSpaceId', space.id)"
+          >
+            <!-- Active Indicator Line -->
+            <div
+              v-if="activeSpaceId === space.id"
+              class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[var(--c-gold)] rounded-r-md"
+            ></div>
+
+            <!-- Space Icon -->
+            <div
+              class="w-10 h-10 rounded-[12px] bg-white/5 flex items-center justify-center shrink-0 border border-white/5 group-hover:bg-white/10 transition-colors opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100"
+            >
+              <img
+                v-if="space.icon_url"
+                :src="space.icon_url"
+                alt=""
+                class="w-6 h-6 object-contain"
+              />
+              <span v-else class="text-white/80 font-bold text-lg">{{ space.name?.[0] }}</span>
+            </div>
+
+            <!-- Space Info -->
+            <div class="min-w-0 hidden sm:block">
+              <div
+                class="text-white/80 font-medium text-sm truncate group-hover:text-white"
+              >
+                {{ space.name }}
+              </div>
+              <div class="text-[var(--c-gold)] text-[10px] mt-0.5 opacity-80">
+                未加入
               </div>
             </div>
           </div>

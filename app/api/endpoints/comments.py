@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
@@ -95,6 +95,9 @@ async def create_comment(comment_in: CommentCreate, current_user: User = Depends
     post = await Post.get_or_none(id=comment_in.post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+
+    from app.api.deps import ensure_space_subscription
+    await ensure_space_subscription(current_user, post.space_id)
 
     parent: Comment | None = None
     if comment_in.parent_id:

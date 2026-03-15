@@ -5,7 +5,7 @@ from app.schemas.common import ResponseBase, PaginationData
 from app.core.responses import success_response, paginate_response
 from app.models.forum import Post, PostLike
 from app.models.category import Space
-from app.api.deps import get_current_active_user, get_current_user
+from app.api.deps import get_current_active_user, get_current_user, ensure_space_subscription
 from app.models.user import User
 
 router = APIRouter()
@@ -61,6 +61,8 @@ async def create_post(post_in: PostCreate, current_user: User = Depends(get_curr
     space = await Space.get_or_none(id=post_in.space_id)
     if not space:
         raise HTTPException(status_code=404, detail="Space not found")
+        
+    await ensure_space_subscription(current_user, space.id)
         
     post = await Post.create(
         title=post_in.title,
