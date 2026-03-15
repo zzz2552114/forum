@@ -25,6 +25,8 @@ describe('HomeDashboardView.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    localStorage.clear()
+    sessionStorage.clear()
   })
 
   const mountView = () => {
@@ -44,11 +46,12 @@ describe('HomeDashboardView.vue', () => {
 
   it('fetches and renders real spaces and materials', async () => {
     const mockGet = vi.mocked(request.get)
+    localStorage.setItem('token', 'mock-token')
     
     const wrapper = mountView()
     await new Promise(resolve => setTimeout(resolve, 50)) // Wait for onMounted
     
-    expect(mockGet).toHaveBeenCalledWith('/spaces/')
+    expect(mockGet).toHaveBeenCalledWith('/spaces/me/subscriptions')
     expect(mockGet).toHaveBeenCalledWith('/resources/', expect.objectContaining({ params: { page: 1, page_size: 5 } }))
     
     // Check if the DOM has been updated with mocked fetch results

@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch, markRaw } from 'vue'
 import { Plus, ChatDotSquare, Document, ChatLineRound, Location, ShoppingCart, Headset, Star, Setting } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import SpaceRealtimeChatPanel from '@/features/realtime-chat/SpaceRealtimeChatPanel.vue'
 import ResourceList from '@/features/spaces/ResourceList.vue'
@@ -16,6 +16,7 @@ import HomeHeader from '@/components/HomeHeader.vue'
 import { ArrowLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 // State
@@ -29,6 +30,7 @@ const resources = ref<any[]>([]) // Added to store materials/policies
 
 // Inline Post Detail State (simplified)
 const selectedPostId = ref<number | null>(null)
+const isApplyingRouteQuery = ref(false)
 
 const goBackToPosts = () => {
   selectedPostId.value = null
@@ -144,7 +146,9 @@ const fetchResourcesForSpace = async () => {
 
 
 watch(activeSpaceId, () => {
-  goBackToPosts()
+  if (!isApplyingRouteQuery.value) {
+    goBackToPosts()
+  }
   updateRecentSpaces()
   if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
     fetchPostsForSpace()
@@ -154,13 +158,33 @@ watch(activeSpaceId, () => {
 })
 
 watch(activeSectionId, () => {
-  goBackToPosts()
+  if (!isApplyingRouteQuery.value) {
+    goBackToPosts()
+  }
   if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
     fetchPostsForSpace()
   } else if ([3, 4].includes(activeSectionId.value)) {
     fetchResourcesForSpace()
   }
 })
+
+const applyRouteQuery = () => {
+  const rawSpaceId = Number(route.query.spaceId)
+  const rawSectionId = Number(route.query.sectionId)
+  const rawPostId = Number(route.query.postId)
+
+  isApplyingRouteQuery.value = true
+  if (rawSpaceId && !Number.isNaN(rawSpaceId)) {
+    activeSpaceId.value = rawSpaceId
+  }
+  if (rawSectionId && [1, 2, 3, 4, 5, 6, 7].includes(rawSectionId)) {
+    activeSectionId.value = rawSectionId
+  }
+  if (rawPostId && !Number.isNaN(rawPostId)) {
+    selectedPostId.value = rawPostId
+  }
+  isApplyingRouteQuery.value = false
+}
 
 onMounted(async () => {
   await fetchCategories()
@@ -170,10 +194,8 @@ onMounted(async () => {
   }
   loadRecentSpaces()
   
-  const querySpaceId = Number(router.currentRoute.value.query.spaceId)
-  if (querySpaceId && !isNaN(querySpaceId)) {
-    activeSpaceId.value = querySpaceId
-  } else if (!activeSpaceId.value && subscribedSpaces.value.length > 0) {
+  applyRouteQuery()
+  if (!activeSpaceId.value && subscribedSpaces.value.length > 0) {
     activeSpaceId.value = subscribedSpaces.value[0].id
   }
   
@@ -187,6 +209,14 @@ onMounted(async () => {
     }
   }
 })
+
+watch(
+  () => route.query,
+  () => {
+    applyRouteQuery()
+  },
+  { deep: true },
+)
 
 const handleJoinSpace = async () => {
   if (!authStore.isAuthenticated) {
@@ -285,7 +315,11 @@ const sections = ref([
   <div class="min-h-screen bg-[var(--c-fog)] flex flex-col h-screen overflow-hidden">
     <!-- Header: Shrink 0 to keep constant height -->
     <div class="shrink-0">
-      <HomeHeader />
+      <HomeHeader
+        :space-id="activeSpaceId"
+        :space-name="activeSpace?.name || ''"
+        :space-section-id="activeSectionId"
+      />
     </div>
 
     <div class="flex-1 flex overflow-hidden">

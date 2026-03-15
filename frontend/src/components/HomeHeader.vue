@@ -1,18 +1,40 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { Search, Bell, Setting, UserFilled, Plus } from '@element-plus/icons-vue'
-import { useAuthStore } from '@/stores/auth'
-import request from '@/utils/request'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Bell, Search, Setting, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+
 import { useNotificationSocket } from '@/features/ai-mention/useNotificationSocket'
 import { useCan } from '@/features/auth/useCan'
+import { useAuthStore } from '@/stores/auth'
+import request from '@/utils/request'
+
+type GlobalSearchType = 'spaces' | 'posts' | 'materials' | 'explore' | 'users'
+type SpaceSearchType = 'space_posts' | 'space_materials' | 'space_policy'
+
+const props = withDefaults(
+  defineProps<{
+    spaceId?: number | null
+    spaceName?: string
+    spaceSectionId?: number | null
+  }>(),
+  {
+    spaceId: null,
+    spaceName: '',
+    spaceSectionId: null,
+  },
+)
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const { can, explainDeny } = useCan()
 
 const searchQuery = ref('')
+const globalSearchType = ref<GlobalSearchType>('spaces')
+const spaceSearchType = ref<SpaceSearchType>('space_posts')
+const isSearchFocused = ref(false)
+
 const username = ref('同学')
 const unreadCount = ref(0)
 
@@ -22,25 +44,73 @@ const {
 } = useNotificationSocket()
 
 const canCreateSpace = computed(() => can({ requireAuth: true, permission: 'space.create', minTrust: 3 }))
+const isSpacesRoute = computed(() => route.path === '/spaces')
+const hasValidSpaceContext = computed(() => Number.isFinite(Number(props.spaceId)) && Number(props.spaceId) > 0)
+const shouldShowSpacePrefix = computed(
+  () => isSpacesRoute.value && hasValidSpaceContext.value && isSearchFocused.value && Boolean(props.spaceName?.trim()),
+)
+
+const activeSearchType = computed({
+  get: () => (isSpacesRoute.value ? spaceSearchType.value : globalSearchType.value),
+  set: (value: string) => {
+    if (isSpacesRoute.value) {
+      spaceSearchType.value = value as SpaceSearchType
+      return
+    }
+    globalSearchType.value = value as GlobalSearchType
+  },
+})
+
+const searchTypeOptions = computed(() => {
+  if (isSpacesRoute.value) {
+    return [
+      { label: '帖子', value: 'space_posts' as const },
+      { label: '题库', value: 'space_materials' as const },
+      { label: '学校政策', value: 'space_policy' as const },
+    ]
+  }
+  return [
+    { label: '空间', value: 'spaces' as const },
+    { label: '帖子', value: 'posts' as const },
+    { label: '题库', value: 'materials' as const },
+    { label: '其他资料', value: 'explore' as const },
+    { label: '用户', value: 'users' as const },
+  ]
+})
+
+const searchPlaceholder = computed(() => {
+  if (isSpacesRoute.value) {
+    if (spaceSearchType.value === 'space_posts') return '在当前空间搜索帖子...'
+    if (spaceSearchType.value === 'space_materials') return '在当前空间搜索题库资料...'
+    return '在当前空间搜索学校政策...'
+  }
+
+  if (globalSearchType.value === 'spaces') return '搜索全站空间...'
+  if (globalSearchType.value === 'posts') return '搜索全站帖子...'
+  if (globalSearchType.value === 'materials') return '搜索全站题库资料...'
+  if (globalSearchType.value === 'explore') return '搜索全站其他资料...'
+  return '搜索用户名（开发中）...'
+})
 
 const unreadBadgeText = computed(() => {
   if (unreadCount.value > 99) return '99+'
   return String(unreadCount.value)
 })
 
-const fetchUnreadCount = async () => {
-  if (!authStore.isAuthenticated) {
-    unreadCount.value = 0
-    return
-  }
-
-  try {
-    const res: any = await request.get('/me/notifications/unread-count')
-    unreadCount.value = res.unread_count || 0
-  } catch {
-    unreadCount.value = 0
-  }
-}
+watch(
+  () => props.spaceSectionId,
+  (sectionId) => {
+    if (!isSpacesRoute.value || sectionId == null) return
+    if (sectionId === 3) {
+      spaceSearchType.value = 'space_materials'
+    } else if (sectionId === 4) {
+      spaceSearchType.value = 'space_policy'
+    } else {
+      spaceSearchType.value = 'space_posts'
+    }
+  },
+  { immediate: true },
+)
 
 watch(
   () => pushedNotifications.value.length,
@@ -51,11 +121,23 @@ watch(
   },
 )
 
+const fetchUnreadCount = async () => {
+  if (!authStore.isAuthenticated) {
+    unreadCount.value = 0
+    return
+  }
+  try {
+    const res: any = await request.get('/me/notifications/unread-count')
+    unreadCount.value = res.unread_count || 0
+  } catch {
+    unreadCount.value = 0
+  }
+}
+
 onMounted(async () => {
   if (authStore.user) {
     username.value = authStore.user.nickname || authStore.user.username || '同学'
   }
-
   if (authStore.isAuthenticated) {
     await fetchUnreadCount()
     const token = (authStore.token || '').trim()
@@ -64,6 +146,50 @@ onMounted(async () => {
     }
   }
 })
+
+const handleSearch = () => {
+  const keyword = searchQuery.value.trim()
+
+  if (isSpacesRoute.value) {
+    if (!hasValidSpaceContext.value) {
+      ElMessage.warning('请先在 spaces 页选择一个空间')
+      return
+    }
+    const commonQuery = {
+      keyword,
+      spaceId: String(props.spaceId),
+      source: 'spaces',
+    }
+    if (spaceSearchType.value === 'space_posts') {
+      router.push({ path: '/search/posts', query: commonQuery })
+      return
+    }
+    if (spaceSearchType.value === 'space_materials') {
+      router.push({ path: '/search/materials', query: commonQuery })
+      return
+    }
+    router.push({ path: '/search/explore', query: commonQuery })
+    return
+  }
+
+  if (globalSearchType.value === 'users') {
+    ElMessage.info('用户搜索功能开发中')
+    return
+  }
+  if (globalSearchType.value === 'spaces') {
+    router.push({ path: '/explore-spaces', query: { keyword, global: '1' } })
+    return
+  }
+  if (globalSearchType.value === 'posts') {
+    router.push({ path: '/search/posts', query: { keyword } })
+    return
+  }
+  if (globalSearchType.value === 'materials') {
+    router.push({ path: '/search/materials', query: { keyword } })
+    return
+  }
+  router.push({ path: '/search/explore', query: { keyword } })
+}
 
 const handleLogout = () => {
   authStore.logout()
@@ -74,11 +200,16 @@ const handleOpenNotifications = () => {
   router.push('/notifications')
 }
 
-// Dialog States
 const showSpaceDialog = ref(false)
-const spaceForm = ref({ name: '', slug: '', description: '', type: 'course', category_id: null as number | null })
-
+const spaceForm = ref({
+  name: '',
+  slug: '',
+  description: '',
+  type: 'course',
+  category_id: null as number | null,
+})
 const categories = ref<any[]>([])
+
 const openSpaceDialog = async () => {
   if (!canCreateSpace.value) {
     ElMessage.warning(explainDeny({ requireAuth: true, permission: 'space.create', minTrust: 3 }))
@@ -87,13 +218,13 @@ const openSpaceDialog = async () => {
 
   showSpaceDialog.value = true
   spaceForm.value = { name: '', slug: '', description: '', type: 'course', category_id: null }
-  
+
   try {
     const res: any = await request.get('/categories/')
     const allowed = ['学校', '课程', '休闲娱乐', '专业', '探索']
-    categories.value = (res || []).filter((c: any) => allowed.includes(c.name))
-  } catch (e) {
-    console.error(e)
+    categories.value = (res || []).filter((item: any) => allowed.includes(item.name))
+  } catch {
+    categories.value = []
   }
 }
 
@@ -102,23 +233,24 @@ const submitSpace = async () => {
     ElMessage.warning(explainDeny({ requireAuth: true, permission: 'space.create', minTrust: 3 }))
     return
   }
-
-  if (!spaceForm.value.name || !spaceForm.value.category_id) return ElMessage.warning('请填写必填项')
+  if (!spaceForm.value.name || !spaceForm.value.category_id) {
+    ElMessage.warning('请填写必填项')
+    return
+  }
   try {
     await request.post('/spaces/', spaceForm.value)
     ElMessage.success('空间创建成功')
     showSpaceDialog.value = false
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || e.response?.data?.detail || e.message || '创建失败')
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.message || error.response?.data?.detail || error.message || '创建失败')
   }
 }
 </script>
 
 <template>
   <header class="h-[88px] bg-white border-b border-[var(--c-navy)] border-opacity-5 flex items-center justify-between px-[80px] sticky top-0 z-40">
-    <!-- Left: Logo & Welcome -->
     <div class="flex items-center gap-x-6">
-      <div 
+      <div
         class="w-16 h-16 bg-[var(--c-navy)] rounded-[16px] flex items-center justify-center cursor-pointer overflow-hidden shadow-sm"
         @click="router.push('/home')"
       >
@@ -130,22 +262,52 @@ const submitSpace = async () => {
       </div>
     </div>
 
-    <!-- Middle: Search -->
-    <div class="w-[320px]">
-      <div class="relative flex items-center">
-        <el-icon class="absolute left-4 text-[var(--c-navy)] opacity-40 z-10"><Search /></el-icon>
-        <input 
-          v-model="searchQuery" 
-          type="text" 
-          placeholder="搜索空间、资料、帖子..."
-          class="w-full bg-[var(--c-fog)] rounded-[var(--radius-btn)] pl-11 pr-4 py-2.5 text-[var(--c-navy)] focus:outline-none focus:ring-2 focus:ring-[var(--c-gold)] focus:bg-white transition-all border border-transparent"
-        />
+    <div class="w-[560px]">
+      <div class="relative flex items-center gap-2">
+        <el-select
+          v-model="activeSearchType"
+          class="w-[130px] header-search-select"
+          size="large"
+          popper-class="header-search-popper"
+        >
+          <el-option
+            v-for="option in searchTypeOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+
+        <div class="relative flex-1 h-11 bg-[var(--c-fog)] rounded-[var(--radius-btn)] border border-transparent focus-within:border-[var(--c-gold)] focus-within:bg-white transition-all flex items-center px-3 gap-2">
+          <el-icon class="text-[var(--c-navy)] opacity-50"><Search /></el-icon>
+          <span
+            v-if="shouldShowSpacePrefix"
+            class="text-xs font-semibold text-[var(--c-indigo)] bg-[var(--c-indigo)]/10 px-2 py-1 rounded-full whitespace-nowrap"
+          >
+            {{ props.spaceName }}:
+          </span>
+          <input
+            v-model="searchQuery"
+            type="text"
+            :placeholder="searchPlaceholder"
+            class="w-full bg-transparent text-[var(--c-navy)] focus:outline-none"
+            @focus="isSearchFocused = true"
+            @blur="isSearchFocused = false"
+            @keyup.enter="handleSearch"
+          />
+        </div>
+
+        <button
+          class="h-11 px-4 bg-[var(--c-indigo)] text-white rounded-[var(--radius-btn)] hover:bg-opacity-90 transition-all text-sm font-medium"
+          @click="handleSearch"
+        >
+          查找
+        </button>
       </div>
     </div>
 
-    <!-- Right: Actions -->
     <div class="flex items-center gap-x-5">
-      <button 
+      <button
         class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all relative"
         @click="handleOpenNotifications"
       >
@@ -155,11 +317,10 @@ const submitSpace = async () => {
         </span>
       </button>
 
-      <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all">
+      <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--c-fog)] text-[var(--c-navy)] opacity-70 hover:opacity-100 transition-all" @click="openSpaceDialog">
         <el-icon :size="20"><Setting /></el-icon>
       </button>
 
-      <!-- Avatar with Dropdown -->
       <el-dropdown trigger="click" placement="bottom-end">
         <div class="ml-2 w-10 h-10 rounded-full bg-[var(--c-fog)] border border-[var(--c-navy)] border-opacity-10 overflow-hidden cursor-pointer flex items-center justify-center text-[var(--c-navy)] opacity-50 hover:opacity-80 transition-opacity">
           <el-icon :size="20"><UserFilled /></el-icon>
@@ -169,10 +330,10 @@ const submitSpace = async () => {
             <el-dropdown-item class="py-2.5" @click="router.push('/profile')">
               个人主页
             </el-dropdown-item>
-            <el-dropdown-item class="py-2.5" @click="ElMessage.info('研发中...')">
+            <el-dropdown-item class="py-2.5" @click="ElMessage.info('开发中...')">
               修改头像
             </el-dropdown-item>
-            <el-dropdown-item class="py-2.5" @click="ElMessage.info('研发中...')">
+            <el-dropdown-item class="py-2.5" @click="ElMessage.info('开发中...')">
               修改用户名
             </el-dropdown-item>
             <el-dropdown-item divided class="py-2.5 text-red-500" @click="handleLogout">
@@ -184,14 +345,13 @@ const submitSpace = async () => {
     </div>
   </header>
 
-  <!-- Create Space Dialog -->
   <el-dialog v-model="showSpaceDialog" title="创建新空间" width="480px" style="border-radius: var(--radius-card)">
     <div class="space-y-4 pt-2">
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属模块 <span class="text-red-500">*</span></label>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属模块<span class="text-red-500">*</span></label>
           <el-select v-model="spaceForm.category_id" placeholder="选择模块" class="w-full">
-            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+            <el-option v-for="item in categories" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </div>
         <div>
@@ -203,7 +363,7 @@ const submitSpace = async () => {
           </el-select>
         </div>
       </div>
-      
+
       <div>
         <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">空间名称 <span class="text-red-500">*</span></label>
         <input v-model="spaceForm.name" placeholder="如：高等数学" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-[var(--c-gold)] outline-none" />
@@ -223,5 +383,9 @@ const submitSpace = async () => {
 </template>
 
 <style scoped>
-/* Scoped styles */
+:deep(.header-search-select .el-select__wrapper) {
+  border-radius: var(--radius-btn);
+  box-shadow: none;
+  border: 1px solid rgba(15, 27, 45, 0.08);
+}
 </style>

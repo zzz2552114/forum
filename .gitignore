@@ -1,4 +1,4 @@
-# Environments
+﻿# Environments
 .env
 .venv
 env/
@@ -37,8 +37,6 @@ htmlcov/
 .vscode/
 
 # DB
-*.sqlite3
-*.db
 
 # Tooling
 .agents/

@@ -49,6 +49,24 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: '发现空间', requiresAuth: true },
   },
   {
+    path: '/search/posts',
+    name: 'SearchPosts',
+    component: () => import('@/views/app/SearchPostsView.vue'),
+    meta: { title: 'Post Search', requiresAuth: false },
+  },
+  {
+    path: '/search/materials',
+    name: 'SearchMaterials',
+    component: () => import('@/views/app/SearchMaterialsView.vue'),
+    meta: { title: 'Material Search', requiresAuth: false },
+  },
+  {
+    path: '/search/explore',
+    name: 'SearchExplore',
+    component: () => import('@/views/app/SearchExploreView.vue'),
+    meta: { title: 'Explore Search', requiresAuth: false },
+  },
+  {
     path: '/me/overview',
     name: 'MeOverview',
     component: () => import('@/views/app/MeOverviewView.vue'),
