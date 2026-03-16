@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ArrowUpBold, StarFilled, View, CaretTop, ChatDotRound } from '@element-plus/icons-vue'
+import { highlightKeywordHtml } from '@/utils/search'
 
 const props = defineProps<{
   posts: any[]
+  searchKeyword?: string
 }>()
 
 defineEmits(['read'])
 
 const postSortMethod = ref('created_at')
 const sortedPosts = computed(() => {
+  if (String(props.searchKeyword || '').trim()) {
+    return [...props.posts]
+  }
   const sorted = [...props.posts]
   if (postSortMethod.value === 'created_at') {
     sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -20,6 +25,8 @@ const sortedPosts = computed(() => {
   }
   return sorted
 })
+
+const renderHighlight = (value: string) => highlightKeywordHtml(value, props.searchKeyword || '')
 </script>
 
 <template>
@@ -56,11 +63,9 @@ const sortedPosts = computed(() => {
         <h3 class="font-medium text-[var(--c-navy)] text-lg mb-2 group-hover:text-[var(--c-indigo)]">
           <el-icon v-if="post.is_pinned" class="text-orange-500 mr-1 align-middle"><ArrowUpBold /></el-icon>
           <el-icon v-if="post.is_featured" class="text-red-500 mr-1 align-middle"><StarFilled /></el-icon>
-          {{ post.title }}
+          <span v-html="renderHighlight(post.title || '')"></span>
         </h3>
-        <p class="text-[var(--c-navy)]/70 text-sm line-clamp-2 leading-relaxed">
-          {{ post.summary || post.content }}
-        </p>
+        <p class="text-[var(--c-navy)]/70 text-sm line-clamp-2 leading-relaxed" v-html="renderHighlight(post.summary || post.content || '')"></p>
         <div class="mt-4 flex gap-x-4 text-xs text-[var(--c-navy)]/40 font-medium">
           <span class="flex items-center gap-1"><el-icon><View /></el-icon>{{ post.view_count || 0 }}</span>
           <span class="flex items-center gap-1"><el-icon><CaretTop /></el-icon>{{ post.like_count || 0 }}</span>
@@ -75,3 +80,12 @@ const sortedPosts = computed(() => {
     </div>
   </template>
 </template>
+
+<style scoped>
+:deep(.search-highlight) {
+  background: rgba(245, 191, 66, 0.35);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+</style>

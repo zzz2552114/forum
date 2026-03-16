@@ -145,6 +145,20 @@ def test_search_full_flow_and_scope_filters():
             content="tips and tricks",
             space_id=course_space_b_id,
         )
+        _create_post(
+            client,
+            headers,
+            title="Ordinary discussion",
+            content="This content mentions alpha ranking keyword strongly",
+            space_id=course_space_a_id,
+        )
+        _create_post(
+            client,
+            headers,
+            title="Alpha ranking keyword in title",
+            content="body without extra clues",
+            space_id=course_space_b_id,
+        )
 
         file_a = _upload_file(client, headers, "macro-notes.txt")
         file_b = _upload_file(client, headers, "micro-exam.txt")
@@ -191,6 +205,12 @@ def test_search_full_flow_and_scope_filters():
         space_search = client.get("/api/v1/search/spaces", params={"query": "economics"})
         assert space_search.status_code == 200
         assert space_search.json()["data"]["pagination"]["total"] >= 2
+        space_search_scoped = client.get(
+            "/api/v1/search/spaces",
+            params={"query": "economics", "category_id": course_category_id},
+        )
+        assert space_search_scoped.status_code == 200
+        assert space_search_scoped.json()["data"]["pagination"]["total"] >= 2
 
         materials_search = client.get(
             "/api/v1/search/resources",
@@ -255,3 +275,11 @@ def test_search_full_flow_and_scope_filters():
         pagination = page_check.json()["data"]["pagination"]
         assert pagination["page"] == 1
         assert pagination["page_size"] == 1
+
+        title_first = client.get(
+            "/api/v1/search/posts",
+            params={"keyword": "alpha ranking keyword", "page": 1, "page_size": 5},
+        )
+        assert title_first.status_code == 200
+        first_item = title_first.json()["data"]["items"][0]
+        assert "Alpha ranking keyword in title" in first_item["title"]

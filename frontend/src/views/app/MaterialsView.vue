@@ -5,8 +5,10 @@ import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
 import HomeHeader from '@/components/HomeHeader.vue'
+import { SEARCH_RESOURCE_PAGE_SIZE } from '@/constants/search'
 import { useAuthStore } from '@/stores/auth'
 import request from '@/utils/request'
+import { fuzzySort, highlightKeywordHtml } from '@/utils/search'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -34,13 +36,15 @@ const uploadForm = ref({
 })
 
 const normalizeName = (value: unknown) => String(value || '').toLowerCase()
-const isCourseCategory = (category: any) => ['课程', '璇剧▼', 'course'].includes(normalizeName(category?.name)) || normalizeName(category?.slug) === 'course'
-const isSchoolCategory = (category: any) => ['学校', '瀛︽牎', 'school'].includes(normalizeName(category?.name)) || normalizeName(category?.slug) === 'school'
+const isCourseCategory = (category: any) =>
+  ['课程', 'course'].includes(normalizeName(category?.name)) || normalizeName(category?.slug) === 'course'
+const isSchoolCategory = (category: any) =>
+  ['学校', 'school'].includes(normalizeName(category?.name)) || normalizeName(category?.slug) === 'school'
 
 const fetchCategories = async () => {
   try {
     const res: any = await request.get('/categories/')
-    categories.value = res || []
+    categories.value = Array.isArray(res) ? res : []
   } catch (error) {
     console.error('Failed to fetch categories', error)
     categories.value = []
@@ -50,7 +54,7 @@ const fetchCategories = async () => {
 const fetchSpaces = async () => {
   try {
     const res: any = await request.get('/spaces/')
-    spaces.value = res || []
+    spaces.value = Array.isArray(res) ? res : []
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || error.message || '获取空间列表失败')
     spaces.value = []
@@ -73,47 +77,47 @@ const fetchMaterials = async () => {
   try {
     const params: Record<string, any> = {
       page: 1,
-      page_size: 100,
+      page_size: SEARCH_RESOURCE_PAGE_SIZE,
       scope: 'materials',
     }
-    if (searchQuery.value.trim()) {
-      params.keyword = searchQuery.value.trim()
-    }
-    if (selectedSchoolId.value) {
-      params.school_space_id = selectedSchoolId.value
-    }
-    if (selectedCourseId.value) {
-      params.course_space_id = selectedCourseId.value
-    }
+    if (searchQuery.value.trim()) params.keyword = searchQuery.value.trim()
+    if (selectedSchoolId.value) params.school_space_id = selectedSchoolId.value
+    if (selectedCourseId.value) params.course_space_id = selectedCourseId.value
 
     const res: any = await request.get('/search/resources', { params })
-    materials.value = res.items || []
+    materials.value = Array.isArray(res.items) ? res.items : []
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || error.message || '获取题库资料失败')
   }
 }
 
-const handleSearch = () => {
-  fetchMaterials()
+const handleSearch = async () => {
+  if (!selectedCourseId.value) {
+    const query: Record<string, string> = {}
+    if (searchQuery.value.trim()) query.keyword = searchQuery.value.trim()
+    if (selectedSchoolId.value) query.schoolSpaceId = String(selectedSchoolId.value)
+    router.push({ path: '/search/materials', query })
+    return
+  }
+  await fetchMaterials()
 }
 
 const handleSubjectSelect = (subjectName: string) => {
   activeSubject.value = subjectName
   if (subjectName === '全部') {
     selectedCourseId.value = null
-  } else {
-    const target = spaces.value.find((item: any) => item.name === subjectName)
-    selectedCourseId.value = target?.id || null
+    return
   }
-  fetchMaterials()
+  const target = spaces.value.find((item: any) => item.name === subjectName)
+  selectedCourseId.value = target?.id || null
 }
 
-const clearFilters = () => {
+const clearFilters = async () => {
   searchQuery.value = ''
   selectedSchoolId.value = null
   selectedCourseId.value = null
   activeSubject.value = '全部'
-  fetchMaterials()
+  await fetchMaterials()
 }
 
 const handleUploadClick = () => {
@@ -173,7 +177,7 @@ const submitUpload = async () => {
       resource_type: 'notes',
       version_note: 'Initial Upload',
     }
-    fetchMaterials()
+    await fetchMaterials()
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || error.response?.data?.detail || error.message || '上传失败')
   } finally {
@@ -207,9 +211,21 @@ const toggleBookmark = async (resource: any) => {
   }
 }
 
-const filteredMaterials = computed(() =>
-  [...materials.value].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-)
+const filteredMaterials = computed(() => {
+  const sortedByTime = [...materials.value].sort(
+    (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
+  if (!searchQuery.value.trim()) return sortedByTime
+
+  return fuzzySort(sortedByTime, searchQuery.value, (item: any) => [
+    { text: item.title, weight: 10 },
+    { text: item.description, weight: 4 },
+    { text: item.space_name || item.course_space_name, weight: 3 },
+    { text: item.school_space_name, weight: 3 },
+  ])
+})
+
+const renderHighlight = (value: string) => highlightKeywordHtml(value, searchQuery.value)
 
 watch(selectedCourseId, (courseId) => {
   if (!courseId) {
@@ -224,22 +240,18 @@ onMounted(async () => {
   await fetchCategories()
   await fetchSpaces()
 
-  if (typeof route.query.keyword === 'string') {
-    searchQuery.value = route.query.keyword
-  }
+  if (typeof route.query.keyword === 'string') searchQuery.value = route.query.keyword
   const querySchoolId = Number(route.query.schoolSpaceId)
   const queryCourseId = Number(route.query.courseSpaceId)
   const querySpaceId = Number(route.query.spaceId)
-  if (!Number.isNaN(querySchoolId) && querySchoolId > 0) {
-    selectedSchoolId.value = querySchoolId
-  }
+  if (!Number.isNaN(querySchoolId) && querySchoolId > 0) selectedSchoolId.value = querySchoolId
   if (!Number.isNaN(queryCourseId) && queryCourseId > 0) {
     selectedCourseId.value = queryCourseId
   } else if (!Number.isNaN(querySpaceId) && querySpaceId > 0) {
     selectedCourseId.value = querySpaceId
   }
 
-  fetchMaterials()
+  await fetchMaterials()
 })
 </script>
 
@@ -331,9 +343,7 @@ onMounted(async () => {
                   <el-icon :size="24"><Document /></el-icon>
                 </div>
                 <div class="min-w-0">
-                  <h4 class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors" :title="mat.title">
-                    {{ mat.title }}
-                  </h4>
+                  <h4 class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors" :title="mat.title" v-html="renderHighlight(mat.title || '')"></h4>
                   <div class="flex items-center gap-x-4 text-sm text-[var(--c-navy)]/50">
                     <span class="flex items-center gap-x-1 font-medium">
                       <span class="w-1.5 h-1.5 rounded-full bg-[var(--c-gold)] opacity-80 inline-block"></span>
@@ -381,13 +391,13 @@ onMounted(async () => {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属学校<span class="text-[var(--c-navy)]/40 text-xs font-normal ml-1">可选</span></label>
+            <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属学校 <span class="text-[var(--c-navy)]/40 text-xs font-normal ml-1">可选</span></label>
             <el-select v-model="uploadForm.school_space_id" placeholder="选择学校" class="w-full" clearable>
               <el-option v-for="space in schoolSpaces" :key="space.id" :label="space.name" :value="space.id" />
             </el-select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属课程<span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属课程 <span class="text-red-500">*</span></label>
             <el-select v-model="uploadForm.space_id" placeholder="选择课程" class="w-full">
               <el-option v-for="space in courseSpaces" :key="space.id" :label="space.name" :value="space.id" />
             </el-select>
@@ -441,5 +451,12 @@ onMounted(async () => {
 }
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background-color: rgba(15, 27, 45, 0.2);
+}
+
+:deep(.search-highlight) {
+  background: rgba(245, 191, 66, 0.35);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0 2px;
 }
 </style>

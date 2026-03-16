@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="min-h-screen bg-[var(--c-fog)] flex flex-col">
     <HomeHeader />
 
@@ -6,7 +6,7 @@
       <div class="bg-white rounded-[var(--radius-card)] border border-[var(--c-navy)]/5 shadow-sm p-6 mb-6">
         <h2 class="text-2xl font-bold text-[var(--c-navy)] mb-2">其他资料搜索结果</h2>
         <p class="text-[var(--c-navy)]/60 text-sm">
-          关键词：<span class="font-semibold">{{ keyword || '（未输入）' }}</span>
+          关键词：<span class="font-semibold">{{ keyword || '请输入关键词' }}</span>
           <span v-if="spaceId" class="ml-3">限定空间：#{{ spaceId }}</span>
         </p>
       </div>
@@ -22,9 +22,7 @@
               <el-icon :size="24"><Document /></el-icon>
             </div>
             <div class="min-w-0">
-              <button class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors text-left" @click="goToExplore(item)">
-                {{ item.title }}
-              </button>
+              <p class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors" v-html="renderHighlight(item.title || '')"></p>
               <div class="flex items-center gap-x-4 text-sm text-[var(--c-navy)]/50">
                 <span>{{ item.school_space_name || '未知学校' }}</span>
                 <span>{{ item.resource_type || 'other' }}</span>
@@ -60,19 +58,21 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Document, Star, StarFilled, Upload } from '@element-plus/icons-vue'
 
 import HomeHeader from '@/components/HomeHeader.vue'
 import request from '@/utils/request'
+import { highlightKeywordHtml } from '@/utils/search'
 
 const route = useRoute()
-const router = useRouter()
 
 const keyword = ref('')
 const spaceId = ref<number | null>(null)
 const resources = ref<any[]>([])
+
+const renderHighlight = (value: string) => highlightKeywordHtml(value, keyword.value)
 
 const syncFromRoute = () => {
   keyword.value = typeof route.query.keyword === 'string' ? route.query.keyword : ''
@@ -87,29 +87,14 @@ const fetchResources = async () => {
       page_size: 100,
       scope: 'explore',
     }
-    if (keyword.value.trim()) {
-      params.keyword = keyword.value.trim()
-    }
-    if (spaceId.value) {
-      params.space_id = spaceId.value
-    }
+    if (keyword.value.trim()) params.keyword = keyword.value.trim()
+    if (spaceId.value) params.space_id = spaceId.value
     const res: any = await request.get('/search/resources', { params })
     resources.value = res.items || []
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || error.message || '加载其他资料搜索结果失败')
     resources.value = []
   }
-}
-
-const goToExplore = (item: any) => {
-  router.push({
-    path: '/explore',
-    query: {
-      keyword: item.title || '',
-      schoolSpaceId: item.school_space_id ? String(item.school_space_id) : item.space_id ? String(item.space_id) : undefined,
-      resourceId: String(item.id),
-    },
-  })
 }
 
 const downloadFile = (item: any) => {
@@ -152,3 +137,12 @@ watch(
   { deep: true },
 )
 </script>
+
+<style scoped>
+:deep(.search-highlight) {
+  background: rgba(245, 191, 66, 0.35);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+</style>

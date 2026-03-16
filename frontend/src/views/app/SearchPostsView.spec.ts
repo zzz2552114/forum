@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { createPinia } from 'pinia'
@@ -10,7 +10,19 @@ import request from '@/utils/request'
 vi.mock('@/utils/request', () => ({
   default: {
     get: vi.fn(async () => ({
-      items: [{ id: 1, title: 'Economics Post', summary: 'summary', space_id: 9, created_at: '2025-01-01T00:00:00', like_count: 0, comment_count: 0, view_count: 0, author: { id: 1, username: 'u' } }],
+      items: [
+        {
+          id: 1,
+          title: 'Economics Post',
+          summary: 'economics summary',
+          space_id: 9,
+          created_at: '2025-01-01T00:00:00',
+          like_count: 0,
+          comment_count: 0,
+          view_count: 0,
+          author: { id: 1, username: 'u' },
+        },
+      ],
       pagination: { total: 1 },
     })),
   },
@@ -21,7 +33,7 @@ describe('SearchPostsView.vue', () => {
     vi.clearAllMocks()
   })
 
-  it('requests /search/posts with keyword and space filter', async () => {
+  const createTestRouter = async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -31,14 +43,15 @@ describe('SearchPostsView.vue', () => {
     })
     await router.push('/search/posts?keyword=economics&spaceId=9')
     await router.isReady()
+    return router
+  }
 
+  it('requests /search/posts with keyword and space filter', async () => {
+    const router = await createTestRouter()
     mount(SearchPostsView, {
       global: {
         plugins: [createPinia(), router, ElementPlus],
-        stubs: {
-          HomeHeader: true,
-          PostList: { template: '<div>post list</div>', props: ['posts'] },
-        },
+        stubs: { HomeHeader: true },
       },
     })
 
@@ -50,5 +63,25 @@ describe('SearchPostsView.vue', () => {
         params: expect.objectContaining({ keyword: 'economics', space_id: 9 }),
       }),
     )
+  })
+
+  it('navigates to /spaces with postId after clicking result', async () => {
+    const router = await createTestRouter()
+    const pushSpy = vi.spyOn(router, 'push')
+
+    const wrapper = mount(SearchPostsView, {
+      global: {
+        plugins: [createPinia(), router, ElementPlus],
+        stubs: { HomeHeader: true },
+      },
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    await wrapper.find('.group').trigger('click')
+
+    expect(pushSpy).toHaveBeenCalledWith({
+      path: '/spaces',
+      query: { spaceId: '9', sectionId: '1', postId: '1' },
+    })
   })
 })

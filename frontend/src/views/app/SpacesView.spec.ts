@@ -22,7 +22,24 @@ vi.mock('@/utils/request', () => ({
       }
       if (url.includes('/categories/')) return [{ id: 1, name: 'Test Cat' }]
       if (url.includes('/spaces/')) return [{ id: 42, name: 'Math', color: 'bg-blue-500', category_id: 1 }]
-      if (url.includes('/posts/')) return { items: [], pagination: { total: 0 } }
+      if (url.includes('/posts/')) {
+        return {
+          items: [
+            { id: 1, title: 'Micro economics notes', summary: 'summary', created_at: '2025-01-01T00:00:00' },
+            { id: 2, title: 'Linear algebra', summary: 'summary', created_at: '2025-01-01T00:00:00' },
+          ],
+          pagination: { total: 2 },
+        }
+      }
+      if (url.includes('/resources/')) {
+        return {
+          items: [
+            { id: 11, title: 'School policy A', resource_type: 'policy', created_at: '2025-01-01T00:00:00' },
+            { id: 12, title: 'Question bank micro', resource_type: 'notes', created_at: '2025-01-01T00:00:00' },
+          ],
+          pagination: { total: 2 },
+        }
+      }
       return []
     }),
     post: vi.fn(),
@@ -116,5 +133,26 @@ describe('SpacesView.vue', () => {
     await vm.handleJoinSpace()
 
     expect(mockPut).toHaveBeenCalledWith('/spaces/42/subscriptions/me')
+  })
+
+  it('filters current section list by keyword and resets on blank keyword', async () => {
+    const { wrapper } = mountView()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(wrapper.find('[data-testid="space-section-search"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="space-section-search-input"]').exists()).toBe(true)
+
+    const vm = wrapper.vm as any
+    vm.posts = [
+      { id: 1, title: 'Micro economics notes', summary: 'summary', created_at: '2025-01-01T00:00:00' },
+      { id: 2, title: 'Linear algebra', summary: 'summary', created_at: '2025-01-01T00:00:00' },
+    ]
+    vm.activeSectionId = 1
+    vm.currentSectionSearchKeyword = 'micro'
+
+    expect(vm.filteredPosts.length).toBe(1)
+    expect(vm.filteredPosts[0].title).toContain('Micro')
+
+    vm.currentSectionSearchKeyword = '   '
+    expect(vm.filteredPosts.length).toBe(2)
   })
 })

@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
 
 import MaterialsView from './MaterialsView.vue'
-import router from '@/router'
 import request from '@/utils/request'
 
 vi.mock('@/utils/request', () => ({
   default: {
-    get: vi.fn(async (url, config) => {
+    get: vi.fn(async (url: string) => {
       if (url.includes('/categories/')) {
         return [
           { id: 1, name: '学校' },
@@ -41,7 +41,7 @@ vi.mock('@/utils/request', () => ({
       }
       return []
     }),
-    post: vi.fn(),
+    post: vi.fn(async () => ({})),
   },
 }))
 
@@ -51,38 +51,63 @@ describe('MaterialsView.vue', () => {
     vi.clearAllMocks()
   })
 
-  const mountView = () =>
-    mount(MaterialsView, {
+  const createTestRouter = async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/materials', component: MaterialsView },
+        { path: '/search/materials', component: { template: '<div>search</div>' } },
+      ],
+    })
+    await router.push('/materials')
+    await router.isReady()
+    return router
+  }
+
+  const mountView = async () => {
+    const router = await createTestRouter()
+    const wrapper = mount(MaterialsView, {
       global: {
         plugins: [createPinia(), router, ElementPlus],
         stubs: {
+          HomeHeader: true,
           'el-dialog': { template: '<div><slot /><slot name="footer" /></div>' },
         },
       },
     })
+    return { wrapper, router }
+  }
 
   it('loads materials via search/resources with materials scope', async () => {
-    const wrapper = mountView()
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    const { wrapper } = await mountView()
+    await new Promise((resolve) => setTimeout(resolve, 40))
 
-    const calls = vi.mocked(request.get).mock.calls
-    const searchCall = calls.find((call) => String(call[0]).includes('/search/resources'))
+    const searchCall = vi
+      .mocked(request.get)
+      .mock.calls.find((call) => String(call[0]).includes('/search/resources'))
     expect(searchCall).toBeTruthy()
     expect(searchCall?.[1]).toEqual(
       expect.objectContaining({
-        params: expect.objectContaining({ scope: 'materials' }),
+        params: expect.objectContaining({ scope: 'materials', page_size: 100 }),
       }),
     )
     expect(wrapper.html()).toContain('Course A Notes')
   })
 
-  it('renders search controls and upload entry', async () => {
-    const wrapper = mountView()
-    await new Promise((resolve) => setTimeout(resolve, 30))
+  it('redirects to /search/materials when course filter is empty', async () => {
+    const { wrapper, router } = await mountView()
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    const pushSpy = vi.spyOn(router, 'push')
 
-    expect(wrapper.html()).toContain('搜索库')
-    expect(wrapper.html()).toContain('上传资料')
-    expect(wrapper.html()).toContain('学校筛选')
-    expect(wrapper.html()).toContain('课程筛选')
+    const vm = wrapper.vm as any
+    vm.selectedCourseId = null
+    vm.selectedSchoolId = 11
+    vm.searchQuery = 'economics'
+    await vm.handleSearch()
+
+    expect(pushSpy).toHaveBeenCalledWith({
+      path: '/search/materials',
+      query: { keyword: 'economics', schoolSpaceId: '11' },
+    })
   })
 })

@@ -5,8 +5,10 @@ import { ElMessage } from 'element-plus'
 import { Document, Location, Monitor, Plus, Present, Search, Star, StarFilled, Trophy, Upload } from '@element-plus/icons-vue'
 
 import HomeHeader from '@/components/HomeHeader.vue'
+import { SEARCH_RESOURCE_PAGE_SIZE } from '@/constants/search'
 import { useAuthStore } from '@/stores/auth'
 import request from '@/utils/request'
+import { fuzzySort, highlightKeywordHtml } from '@/utils/search'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -41,7 +43,8 @@ const uploadForm = ref({
 })
 
 const normalizeName = (value: unknown) => String(value || '').toLowerCase()
-const isSchoolCategory = (category: any) => ['学校', '瀛︽牎', 'school'].includes(normalizeName(category?.name)) || normalizeName(category?.slug) === 'school'
+const isSchoolCategory = (category: any) =>
+  ['学校', 'school'].includes(normalizeName(category?.name)) || normalizeName(category?.slug) === 'school'
 
 const schoolCategory = computed(() => categories.value.find((item: any) => isSchoolCategory(item)))
 const schoolSpaces = computed(() => {
@@ -52,7 +55,7 @@ const schoolSpaces = computed(() => {
 const fetchCategories = async () => {
   try {
     const res: any = await request.get('/categories/')
-    categories.value = res || []
+    categories.value = Array.isArray(res) ? res : []
   } catch (error) {
     console.error('Failed to fetch categories', error)
     categories.value = []
@@ -62,7 +65,7 @@ const fetchCategories = async () => {
 const fetchSpaces = async () => {
   try {
     const res: any = await request.get('/spaces/')
-    spaces.value = res || []
+    spaces.value = Array.isArray(res) ? res : []
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || error.message || '获取空间列表失败')
     spaces.value = []
@@ -74,25 +77,28 @@ const fetchExploreResources = async () => {
   try {
     const params: Record<string, any> = {
       page: 1,
-      page_size: 100,
+      page_size: SEARCH_RESOURCE_PAGE_SIZE,
       scope: 'explore',
     }
-    if (searchQuery.value.trim()) {
-      params.keyword = searchQuery.value.trim()
-    }
-    if (selectedSchoolId.value) {
-      params.school_space_id = selectedSchoolId.value
-    }
+    if (searchQuery.value.trim()) params.keyword = searchQuery.value.trim()
+    if (selectedSchoolId.value) params.school_space_id = selectedSchoolId.value
 
     const res: any = await request.get('/search/resources', { params })
-    resources.value = res.items || []
+    resources.value = Array.isArray(res.items) ? res.items : []
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || error.message || '获取探索资料失败')
   }
 }
 
-const handleSearch = () => {
-  fetchExploreResources()
+const handleSearch = async () => {
+  const keyword = searchQuery.value.trim()
+  if (!selectedSchoolId.value) {
+    const query: Record<string, string> = {}
+    if (keyword) query.keyword = keyword
+    router.push({ path: '/search/explore', query })
+    return
+  }
+  await fetchExploreResources()
 }
 
 const handleUploadClick = () => {
@@ -151,7 +157,7 @@ const submitUpload = async () => {
       resource_type: 'policy',
       version_note: 'Initial Upload',
     }
-    fetchExploreResources()
+    await fetchExploreResources()
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || error.response?.data?.detail || error.message || '上传失败')
   } finally {
@@ -185,13 +191,25 @@ const toggleBookmark = async (resource: any) => {
   }
 }
 
+const filteredResources = computed(() => {
+  const sortedByTime = [...resources.value].sort(
+    (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
+  if (!searchQuery.value.trim()) return sortedByTime
+  return fuzzySort(sortedByTime, searchQuery.value, (item: any) => [
+    { text: item.title, weight: 10 },
+    { text: item.description, weight: 4 },
+    { text: item.school_space_name, weight: 3 },
+  ])
+})
+
+const renderHighlight = (value: string) => highlightKeywordHtml(value, searchQuery.value)
+
 onMounted(async () => {
   await fetchCategories()
   await fetchSpaces()
 
-  if (typeof route.query.keyword === 'string') {
-    searchQuery.value = route.query.keyword
-  }
+  if (typeof route.query.keyword === 'string') searchQuery.value = route.query.keyword
   const querySchoolId = Number(route.query.schoolSpaceId)
   const querySpaceId = Number(route.query.spaceId)
   if (!Number.isNaN(querySchoolId) && querySchoolId > 0) {
@@ -200,7 +218,7 @@ onMounted(async () => {
     selectedSchoolId.value = querySpaceId
   }
 
-  fetchExploreResources()
+  await fetchExploreResources()
 })
 </script>
 
@@ -264,7 +282,7 @@ onMounted(async () => {
             </button>
           </div>
 
-          <div v-if="activeSectionId !== 1 || resources.length === 0" class="flex-1 flex flex-col items-center justify-center text-[var(--c-navy)]/40">
+          <div v-if="activeSectionId !== 1 || filteredResources.length === 0" class="flex-1 flex flex-col items-center justify-center text-[var(--c-navy)]/40">
             <div class="w-24 h-24 mb-4 rounded-full bg-[var(--c-navy)]/5 flex items-center justify-center">
               <el-icon :size="40" class="opacity-50"><component :is="activeSection?.icon" /></el-icon>
             </div>
@@ -275,7 +293,7 @@ onMounted(async () => {
 
           <div v-else class="p-4 space-y-3">
             <div
-              v-for="resource in resources"
+              v-for="resource in filteredResources"
               :id="`explore-resource-${resource.id}`"
               :key="resource.id"
               class="group flex items-center justify-between p-4 rounded-2xl hover:bg-[var(--c-fog)] transition-colors border border-transparent hover:border-[var(--c-navy)]/5 cursor-pointer"
@@ -285,9 +303,7 @@ onMounted(async () => {
                   <el-icon :size="24"><Document /></el-icon>
                 </div>
                 <div class="min-w-0">
-                  <h4 class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors" :title="resource.title">
-                    {{ resource.title }}
-                  </h4>
+                  <h4 class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors" v-html="renderHighlight(resource.title || '')"></h4>
                   <div class="flex items-center gap-x-4 text-sm text-[var(--c-navy)]/50">
                     <span class="flex items-center gap-x-1 font-medium">
                       <span class="w-1.5 h-1.5 rounded-full bg-[var(--c-gold)] opacity-80 inline-block"></span>
@@ -327,7 +343,7 @@ onMounted(async () => {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属学校 <span class="text-red-500">*</span></label>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属学校<span class="text-red-500">*</span></label>
           <el-select v-model="uploadForm.school_space_id" placeholder="必须选择学校" class="w-full">
             <el-option v-for="space in schoolSpaces" :key="space.id" :label="space.name" :value="space.id" />
           </el-select>
@@ -370,5 +386,12 @@ onMounted(async () => {
 }
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background-color: rgba(15, 27, 45, 0.2);
+}
+
+:deep(.search-highlight) {
+  background: rgba(245, 191, 66, 0.35);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0 2px;
 }
 </style>

@@ -177,7 +177,7 @@ async def search_posts(
         posts,
         tokens,
         keyword_value,
-        lambda row: [(7, getattr(row, "title", None)), (3, getattr(row, "content", None))],
+        lambda row: [(12, getattr(row, "title", None)), (2, getattr(row, "content", None))],
     )
     paged_posts, total = _paginate_rows(ranked_posts, page, page_size)
 

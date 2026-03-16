@@ -22,7 +22,15 @@ vi.mock('@/features/auth/useCan', () => ({
 
 vi.mock('@/utils/request', () => ({
   default: {
-    get: vi.fn(async () => 0),
+    get: vi.fn(async (url: string) => {
+      if (String(url).includes('/categories/')) {
+        return [
+          { id: 1, name: '学校' },
+          { id: 2, name: '课程' },
+        ]
+      }
+      return 0
+    }),
     post: vi.fn(async () => ({})),
   },
 }))
@@ -62,6 +70,10 @@ describe('HomeHeader.vue', () => {
     expect(wrapper.exists()).toBe(true)
     expect(wrapper.text()).toContain('FRM')
     expect(wrapper.text()).toContain('Forum Dashboard')
+    const input = wrapper.find('[data-testid="home-global-search-input"]')
+    expect(input.exists()).toBe(true)
+    await input.setValue('economics')
+    expect((wrapper.vm as any).searchQuery).toBe('economics')
   })
 
   it('navigates to global post search', async () => {
@@ -84,6 +96,31 @@ describe('HomeHeader.vue', () => {
     expect(pushSpy).toHaveBeenCalledWith({
       path: '/search/posts',
       query: { keyword: 'economics' },
+    })
+  })
+
+  it('navigates to space search with category and keyword', async () => {
+    const router = createTestRouter()
+    await router.push('/home')
+    await router.isReady()
+    const pushSpy = vi.spyOn(router, 'push')
+
+    const wrapper = mount(HomeHeader, {
+      global: {
+        plugins: [createPinia(), router, ElementPlus],
+      },
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const vm = wrapper.vm as any
+    vm.globalSearchType = 'spaces'
+    vm.selectedSpaceCategoryId = 1
+    vm.searchQuery = '山东'
+    vm.handleSearch()
+
+    expect(pushSpy).toHaveBeenCalledWith({
+      path: '/explore-spaces',
+      query: { keyword: '山东', categoryId: '1' },
     })
   })
 
