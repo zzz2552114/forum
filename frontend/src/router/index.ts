@@ -96,6 +96,12 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/views/app/ProfileView.vue'),
     meta: { title: '个人主页', requiresAuth: true },
   },
+  {
+    path: '/me/ai',
+    name: 'MeAi',
+    component: () => import('@/views/app/MyAiView.vue'),
+    meta: { title: '我的AI', requiresAuth: true },
+  },
 ]
 
 const router = createRouter({

@@ -23,7 +23,7 @@
             </div>
           </div>
           <div class="mt-4 md:mt-0">
-            <el-button @click="$router.push('/me/settings/profile')" round :icon="Setting" color="rgba(255,255,255,0.1)" class="text-white border-white/20 hover:bg-white/20 border">
+            <el-button @click="$router.push('/profile')" round :icon="Setting" color="rgba(255,255,255,0.1)" class="text-white border-white/20 hover:bg-white/20 border">
               编辑个人资料
             </el-button>
           </div>
@@ -69,6 +69,10 @@
             <div class="flex items-center gap-4"><div class="p-2 bg-red-100 rounded-xl text-red-600 flex items-center justify-center"><el-icon class="text-xl"><Pointer /></el-icon></div> <span class="font-bold text-slate-700">我的点赞</span></div>
             <el-icon class="text-slate-400"><ArrowRight /></el-icon>
           </div>
+          <div @click="$router.push('/me/ai')" class="flex items-center justify-between p-5 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 cursor-pointer transition-all duration-300">
+            <div class="flex items-center gap-4"><div class="p-2 bg-violet-100 rounded-xl text-violet-600 flex items-center justify-center"><el-icon class="text-xl"><HelpFilled /></el-icon></div> <span class="font-bold text-slate-700">我的AI</span></div>
+            <el-icon class="text-slate-400"><ArrowRight /></el-icon>
+          </div>
           <div class="flex items-center justify-between p-5 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 cursor-pointer transition-all duration-300">
             <div class="flex items-center gap-4"><div class="p-2 bg-teal-100 rounded-xl text-teal-600 flex items-center justify-center"><el-icon class="text-xl"><View /></el-icon></div> <span class="font-bold text-slate-700">我的关注</span></div>
             <el-icon class="text-slate-400"><ArrowRight /></el-icon>
@@ -87,52 +91,15 @@
           </div>
         </div>
       </el-card>
-
-      <!-- AI Settings Section -->
-      <el-card shadow="never" class="border-none rounded-3xl mt-8 shadow-sm">
-        <template #header>
-          <div class="px-2 flex items-center gap-2">
-            <el-icon class="text-xl text-blue-600"><HelpFilled /></el-icon>
-            <h3 class="text-xl font-bold text-slate-800">AI 调用设置</h3>
-          </div>
-        </template>
-        <div class="p-2">
-          <p class="text-sm text-slate-500 mb-6">配置阿里云百炼 API Key 以在评论区使用 @ai 提问功能。</p>
-          <el-form :model="aiForm" label-position="top" @submit.prevent>
-            <el-form-item label="阿里云百炼 Dashscope API Key">
-              <el-input 
-                v-model="aiForm.ai_api_key" 
-                type="password" 
-                show-password 
-                placeholder="sk-xxxxxxxxxxxxxxxx"
-                class="max-w-md"
-              ></el-input>
-            </el-form-item>
-            <el-form-item label="AI 回复模型">
-              <el-select v-model="aiForm.ai_model" placeholder="请选择模型" class="max-w-md">
-                <el-option label="Qwen Plus (推荐)" value="qwen-plus"></el-option>
-                <el-option label="Qwen Max" value="qwen-max"></el-option>
-                <el-option label="Qwen Turbo" value="qwen-turbo"></el-option>
-                <el-option label="DeepSeek V3" value="deepseek-v3"></el-option>
-                <el-option label="DeepSeek R1" value="deepseek-r1"></el-option>
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="isSavingAi" @click="saveAiSettings" round>保存 AI 设置</el-button>
-            </el-form-item>
-          </el-form>
-        </div>
-      </el-card>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { Setting, School, ArrowRight, Document, Star, FolderOpened, Comment, User, Pointer, View, Avatar, Connection, ChatSquare, HelpFilled } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { ElMessage } from 'element-plus'
 import HomeHeader from '@/components/HomeHeader.vue'
 
 const authStore = useAuthStore()
@@ -145,33 +112,7 @@ const stats = ref([
   { label: '荣誉声望', value: authStore.user?.reputation_score || 0 }
 ])
 
-const isSavingAi = ref(false)
-const aiForm = reactive({
-  ai_api_key: '',
-  ai_model: 'qwen-plus'
-})
-
-const saveAiSettings = async () => {
-  isSavingAi.value = true
-  try {
-    await request.patch('/me/profile', {
-      ai_api_key: aiForm.ai_api_key,
-      ai_model: aiForm.ai_model
-    })
-    ElMessage.success('已保存 AI 设置')
-    authStore.fetchMe() // refresh user info in store
-  } catch (error) {
-    ElMessage.error('保存失败，请检查网络')
-  } finally {
-    isSavingAi.value = false
-  }
-}
-
 onMounted(async () => {
-  if (authStore.user) {
-    aiForm.ai_api_key = authStore.user.ai_api_key || ''
-    aiForm.ai_model = authStore.user.ai_model || 'qwen-plus'
-  }
   try {
     const data: any = await request.get('/me/stats')
     if (stats.value[0]) stats.value[0].value = data.joined_spaces_count || 0

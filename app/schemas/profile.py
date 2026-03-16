@@ -5,6 +5,7 @@ from datetime import datetime
 from app.models.enums import UserRole, TrustLevel, SchoolVisibility
 
 class UserProfileBase(BaseModel):
+    username: Optional[str] = None
     nickname: Optional[str] = None
     avatar_url: Optional[str] = None
     bio: Optional[str] = None

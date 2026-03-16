@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { Search, Bell, Setting, UserFilled, Plus } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import request from '@/utils/request'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import { useNotificationSocket } from '@/features/ai-mention/useNotificationSocket'
 import { useCan } from '@/features/auth/useCan'
 
@@ -47,6 +47,18 @@ watch(
   (next, prev) => {
     if (next > prev) {
       unreadCount.value += next - prev
+      // Show popup for latest AI reply notification
+      const latest = pushedNotifications.value[0]
+      if (latest && latest.notification_type === 'ai_reply') {
+        ElNotification({
+          title: 'AI 回复已完成',
+          message: '请在通知里查阅 AI 的回复。',
+          type: 'success',
+          duration: 5000,
+          position: 'top-right',
+          onClick: () => router.push('/notifications'),
+        })
+      }
     }
   },
 )
@@ -159,28 +171,14 @@ const submitSpace = async () => {
         <el-icon :size="20"><Setting /></el-icon>
       </button>
 
-      <!-- Avatar with Dropdown -->
-      <el-dropdown trigger="click" placement="bottom-end">
-        <div class="ml-2 w-10 h-10 rounded-full bg-[var(--c-fog)] border border-[var(--c-navy)] border-opacity-10 overflow-hidden cursor-pointer flex items-center justify-center text-[var(--c-navy)] opacity-50 hover:opacity-80 transition-opacity">
-          <el-icon :size="20"><UserFilled /></el-icon>
-        </div>
-        <template #dropdown>
-          <el-dropdown-menu class="min-w-[160px]">
-            <el-dropdown-item class="py-2.5" @click="router.push('/profile')">
-              个人主页
-            </el-dropdown-item>
-            <el-dropdown-item class="py-2.5" @click="ElMessage.info('研发中...')">
-              修改头像
-            </el-dropdown-item>
-            <el-dropdown-item class="py-2.5" @click="ElMessage.info('研发中...')">
-              修改用户名
-            </el-dropdown-item>
-            <el-dropdown-item divided class="py-2.5 text-red-500" @click="handleLogout">
-              退出登录
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+      <!-- Avatar → /me/overview -->
+      <div
+        class="ml-2 w-10 h-10 rounded-full bg-[var(--c-fog)] border border-[var(--c-navy)] border-opacity-10 overflow-hidden cursor-pointer flex items-center justify-center text-[var(--c-navy)] opacity-50 hover:opacity-80 transition-opacity"
+        @click="router.push('/me/overview')"
+      >
+        <img v-if="authStore.user?.avatar_url" :src="authStore.user.avatar_url" class="w-full h-full object-cover" />
+        <el-icon v-else :size="20"><UserFilled /></el-icon>
+      </div>
     </div>
   </header>
 
