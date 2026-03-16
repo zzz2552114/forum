@@ -9,7 +9,7 @@ from uuid import uuid4
 from tortoise.expressions import F
 
 from app.ai_mention.parser import extract_ai_prompt
-from app.ai_mention.provider import AiProviderContext, BaseAiProvider, MockAiProvider
+from app.ai_mention.provider import AiProviderContext, BaseAiProvider, MockAiProvider, DashScopeAiProvider
 from app.ai_mention.schemas import AiMentionTaskCreate, AiMentionTaskResponse
 from app.core.security import get_password_hash
 from app.models.forum import Comment, Post
@@ -19,7 +19,7 @@ from app.notifications import create_notification
 AiTaskStatus = Literal["queued", "running", "succeeded", "failed", "timeout"]
 
 DEFAULT_WORKERS = 2
-DEFAULT_TIMEOUT_SECONDS = 3
+DEFAULT_TIMEOUT_SECONDS = 120
 DEFAULT_MAX_RETRIES = 1
 AI_BOT_USERNAME = "ai_assistant"
 AI_BOT_EMAIL = "ai_assistant@forum.local"
@@ -72,7 +72,7 @@ class AiMentionService:
         timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
         max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
-        self._provider = provider or MockAiProvider()
+        self._provider = provider or DashScopeAiProvider()
         self._workers = workers
         self._timeout_seconds = timeout_seconds
         self._max_retries = max_retries
@@ -362,6 +362,10 @@ class AiMentionService:
 
         self._queue = asyncio.Queue()
         self._queue_loop = asyncio.get_running_loop()
+
+        # Swap provider to MockAiProvider for test isolation
+        self._provider = MockAiProvider()
+        self._timeout_seconds = DEFAULT_TIMEOUT_SECONDS
 
 
 ai_mention_service = AiMentionService()

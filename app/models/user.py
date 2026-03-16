@@ -23,6 +23,10 @@ class User(models.Model):
     is_active = fields.BooleanField(default=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
+    
+    # AI Preferences
+    ai_api_key = fields.CharField(max_length=255, null=True)
+    ai_model = fields.CharField(max_length=50, null=True, default="qwen-plus")
 
     class Meta:
         table = "users"

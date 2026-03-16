@@ -9,6 +9,8 @@ class UserProfileBase(BaseModel):
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
     school_name: Optional[str] = None
+    ai_api_key: Optional[str] = None
+    ai_model: Optional[str] = None
 
 class UserPrivacyUpdate(BaseModel):
     school_visibility: Optional[SchoolVisibility] = None
@@ -23,6 +25,8 @@ class UserProfileResponse(UserProfileBase):
     trust_level: TrustLevel
     reputation_score: int
     created_at: datetime
+    ai_api_key: Optional[str] = None
+    ai_model: str
     
     model_config = {
         "from_attributes": True
