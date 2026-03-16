@@ -1,4 +1,4 @@
-﻿from typing import Any
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -20,6 +20,11 @@ from app.schemas.notification import (
     NotificationUnreadCountResponse,
 )
 from app.schemas.profile import UserPrivacyUpdate, UserProfileBase, UserProfileResponse
+from app.schemas.me import MyStatsResponse, MyCommentItemResponse
+from app.schemas.forum import PostResponse
+from app.models.forum import Post, Comment, PostLike
+from app.models.interactions import SpaceSubscription
+from app.models.resource import Resource
 
 router = APIRouter()
 
@@ -120,3 +125,103 @@ async def mark_notifications_as_read_legacy(
     current_user: User = Depends(get_current_active_user),
 ):
     return await mark_notifications_as_read(payload, current_user)
+
+
+@router.get("/stats", response_model=ResponseBase[MyStatsResponse])
+async def read_my_stats(current_user: User = Depends(get_current_active_user)):
+    joined_spaces_count = await SpaceSubscription.filter(user_id=current_user.id).count()
+    post_count = await Post.filter(author_id=current_user.id).count()
+    resource_count = await Resource.filter(uploader_id=current_user.id).count()
+    
+    # follower/following not fully implemented yet in the backend models, defaulting to 0 for now as per plan
+    follower_count = 0 
+    following_count = 0
+    
+    return success_response(MyStatsResponse(
+        joined_spaces_count=joined_spaces_count,
+        post_count=post_count,
+        resource_count=resource_count,
+        follower_count=follower_count,
+        following_count=following_count
+    ))
+
+
+@router.get("/comments", response_model=ResponseBase[PaginationData[MyCommentItemResponse]])
+async def read_my_comments(
+    page: int = 1,
+    page_size: int = 20,
+    current_user: User = Depends(get_current_active_user)
+):
+    query = Comment.filter(author_id=current_user.id).order_by("-created_at")
+    total = await query.count()
+    skip = (page - 1) * page_size
+    comments = await query.offset(skip).limit(page_size).prefetch_related("post", "post__space")
+    
+    response_items = []
+    for comment in comments:
+        post = comment.post
+        space = post.space if post else None
+        
+        post_payload = None
+        space_payload = None
+        
+        if post:
+            post_payload = {
+                "id": post.id,
+                "title": post.title,
+                "content": post.content,
+                "space_id": post.space_id
+            }
+        
+        if space:
+            space_payload = {
+                "id": space.id,
+                "name": space.name
+            }
+            
+        response_items.append(MyCommentItemResponse(
+            id=comment.id,
+            content=comment.content,
+            created_at=comment.created_at,
+            post_id=comment.post_id,
+            post=post_payload,
+            space=space_payload
+        ))
+
+    return paginate_response(response_items, page, page_size, total)
+
+
+@router.get("/likes", response_model=ResponseBase[PaginationData[PostResponse]])
+async def read_my_likes(
+    page: int = 1,
+    page_size: int = 20,
+    current_user: User = Depends(get_current_active_user)
+):
+    # Get the post IDs the user has liked
+    query = PostLike.filter(user_id=current_user.id).order_by("-created_at")
+    total = await query.count()
+    skip = (page - 1) * page_size
+    likes = await query.offset(skip).limit(page_size).prefetch_related("post", "post__author", "post__space", "post__tags")
+    
+    response_posts = []
+    for like in likes:
+        p = like.post
+        if p:
+            response_posts.append(PostResponse(
+                id=p.id,
+                title=p.title,
+                content=p.content,
+                space_id=p.space_id,
+                author_id=p.author_id,
+                author={"id": p.author.id, "username": p.author.username, "nickname": p.author.nickname, "avatar_url": p.author.avatar_url} if p.author else None,
+                space={"id": p.space.id, "name": p.space.name} if p.space else None,
+                view_count=p.view_count,
+                like_count=p.like_count,
+                comment_count=p.comment_count,
+                bookmark_count=p.bookmark_count,
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+                tags=list(p.tags) if hasattr(p, "tags") else []
+            ))
+
+    return paginate_response(response_posts, page, page_size, total)

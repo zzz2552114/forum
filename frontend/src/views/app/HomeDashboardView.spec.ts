@@ -8,7 +8,7 @@ import router from '@/router'
 vi.mock('@/utils/request', () => ({
   default: {
     get: vi.fn(async (url) => {
-      if (url.includes('/spaces/')) {
+      if (url.includes('/spaces/me/subscriptions')) {
         return [{ id: 1, name: 'Real School Space' }, { id: 2, name: 'Course Space' }]
       }
       if (url.includes('/resources/')) {
@@ -25,6 +25,7 @@ describe('HomeDashboardView.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    localStorage.setItem('token', 'fake-token')
   })
 
   const mountView = () => {
@@ -48,7 +49,7 @@ describe('HomeDashboardView.vue', () => {
     const wrapper = mountView()
     await new Promise(resolve => setTimeout(resolve, 50)) // Wait for onMounted
     
-    expect(mockGet).toHaveBeenCalledWith('/spaces/')
+    expect(mockGet).toHaveBeenCalledWith('/spaces/me/subscriptions')
     expect(mockGet).toHaveBeenCalledWith('/resources/', expect.objectContaining({ params: { page: 1, page_size: 5 } }))
     
     // Check if the DOM has been updated with mocked fetch results

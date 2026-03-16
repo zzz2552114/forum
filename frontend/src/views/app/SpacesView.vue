@@ -144,7 +144,11 @@ const fetchResourcesForSpace = async () => {
 
 
 watch(activeSpaceId, () => {
-  goBackToPosts()
+  // If we change spaces, only reset selectedPostId if the query parameter doesn't match
+  const queryPostId = Number(router.currentRoute.value.query.postId)
+  if (!queryPostId || isNaN(queryPostId)) {
+    goBackToPosts()
+  }
   updateRecentSpaces()
   if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
     fetchPostsForSpace()
@@ -154,13 +158,37 @@ watch(activeSpaceId, () => {
 })
 
 watch(activeSectionId, () => {
-  goBackToPosts()
+  // Only clear selectedPostId if we are navigating sections manually
+  const queryPostId = Number(router.currentRoute.value.query.postId)
+  if (!queryPostId || isNaN(queryPostId)) {
+    goBackToPosts()
+  }
+  
   if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
     fetchPostsForSpace()
   } else if ([3, 4].includes(activeSectionId.value)) {
     fetchResourcesForSpace()
   }
 })
+
+watch(
+  () => router.currentRoute.value.query,
+  (newQuery) => {
+    const spaceId = Number(newQuery.spaceId)
+    const postId = Number(newQuery.postId)
+    
+    if (spaceId && !isNaN(spaceId) && spaceId !== activeSpaceId.value) {
+      activeSpaceId.value = spaceId
+    }
+    
+    if (postId && !isNaN(postId) && postId !== selectedPostId.value) {
+      selectedPostId.value = postId
+      activeSectionId.value = 1
+    } else if (!postId || isNaN(postId)) {
+      selectedPostId.value = null
+    }
+  }
+)
 
 onMounted(async () => {
   await fetchCategories()
@@ -171,10 +199,17 @@ onMounted(async () => {
   loadRecentSpaces()
   
   const querySpaceId = Number(router.currentRoute.value.query.spaceId)
+  const queryPostId = Number(router.currentRoute.value.query.postId)
+  
   if (querySpaceId && !isNaN(querySpaceId)) {
     activeSpaceId.value = querySpaceId
   } else if (!activeSpaceId.value && subscribedSpaces.value.length > 0) {
     activeSpaceId.value = subscribedSpaces.value[0].id
+  }
+  
+  if (queryPostId && !isNaN(queryPostId)) {
+    selectedPostId.value = queryPostId
+    activeSectionId.value = 1
   }
   
   if (activeSpaceId.value) {

@@ -73,6 +73,18 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: '我的资料库', requiresAuth: true },
   },
   {
+    path: '/me/comments',
+    name: 'MeComments',
+    component: () => import('@/views/app/MyCommentsView.vue'),
+    meta: { title: '我的评论', requiresAuth: true },
+  },
+  {
+    path: '/me/likes',
+    name: 'MeLikes',
+    component: () => import('@/views/app/MyLikesView.vue'),
+    meta: { title: '我的点赞', requiresAuth: true },
+  },
+  {
     path: '/notifications',
     name: 'Notifications',
     component: () => import('@/views/app/NotificationsView.vue'),

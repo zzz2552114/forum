@@ -1,4 +1,4 @@
-﻿import { computed, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import request from '@/utils/request'
@@ -91,7 +91,7 @@ export const useAuthStore = defineStore('auth', () => {
   const fetchAuthorization = async () => {
     try {
       const snapshot = await request.get('/me/authorization')
-      authorization.value = snapshot as AuthorizationSnapshot
+      authorization.value = snapshot as unknown as AuthorizationSnapshot
       authorizationLoaded.value = true
       return authorization.value
     } catch {

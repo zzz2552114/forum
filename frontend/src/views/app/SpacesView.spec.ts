@@ -115,6 +115,6 @@ describe('SpacesView.vue', () => {
     vm.activeSpaceId = 42
     await vm.handleJoinSpace()
 
-    expect(mockPut).toHaveBeenCalledWith('/spaces/42/subscriptions/me/')
+    expect(mockPut).toHaveBeenCalledWith('/spaces/42/subscriptions/me')
   })
 })

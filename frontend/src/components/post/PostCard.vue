@@ -1,5 +1,5 @@
 <template>
-  <el-card shadow="hover" class="border-none rounded-xl cursor-pointer hover:shadow-md transition-shadow group" @click="$router.push(`/posts/${post.id}`)">
+  <el-card shadow="hover" class="border-none rounded-xl cursor-pointer hover:shadow-md transition-shadow group" @click="$router.push({ path: '/spaces', query: { spaceId: post.space_id || post.space?.id, postId: post.id } })">
     <div class="flex gap-4">
       <div class="hidden sm:flex flex-col items-center gap-1 shrink-0 pt-1">
         <el-button type="info" plain circle size="small" class="border-none bg-slate-50 hover:bg-slate-100 hover:text-blue-500">
