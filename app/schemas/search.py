@@ -45,6 +45,10 @@ class ResourceSearchItem(BaseModel):
     description: Optional[str] = None
     space_id: Optional[int] = None
     space_name: Optional[str] = None
+    school_space_id: Optional[int] = None
+    school_space_name: Optional[str] = None
+    course_space_id: Optional[int] = None
+    course_space_name: Optional[str] = None
     download_count: int = 0
     bookmark_count: int = 0
     created_at: datetime

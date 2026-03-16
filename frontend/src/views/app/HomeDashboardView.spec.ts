@@ -25,7 +25,8 @@ describe('HomeDashboardView.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
-    localStorage.setItem('token', 'fake-token')
+    localStorage.clear()
+    sessionStorage.clear()
   })
 
   const mountView = () => {
@@ -45,6 +46,7 @@ describe('HomeDashboardView.vue', () => {
 
   it('fetches and renders real spaces and materials', async () => {
     const mockGet = vi.mocked(request.get)
+    localStorage.setItem('token', 'mock-token')
     
     const wrapper = mountView()
     await new Promise(resolve => setTimeout(resolve, 50)) // Wait for onMounted

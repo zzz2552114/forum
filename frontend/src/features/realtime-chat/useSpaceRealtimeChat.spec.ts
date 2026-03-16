@@ -86,13 +86,13 @@ describe('useSpaceRealtimeChat', () => {
 
     await chat.connect()
     expect(MockWebSocket.instances).toHaveLength(1)
-    expect(MockWebSocket.instances[0].url).toContain('/ws/chat/1/2')
+    expect(MockWebSocket.instances[0]!.url).toContain('/ws/chat/1/2')
 
-    MockWebSocket.instances[0].emitOpen()
+    MockWebSocket.instances[0]!.emitOpen()
     expect(chat.isConnected.value).toBe(true)
     expect(chat.connectionState.value).toBe('connected')
 
-    MockWebSocket.instances[0].emitMessage(JSON.stringify({
+    MockWebSocket.instances[0]!.emitMessage(JSON.stringify({
       event_id: 1,
       type: 'chat',
       room: '1:2',
@@ -105,7 +105,7 @@ describe('useSpaceRealtimeChat', () => {
     }))
 
     expect(chat.messages.value).toHaveLength(1)
-    expect(chat.messages.value[0].content).toBe('hello')
+    expect(chat.messages.value[0]?.content).toBe('hello')
     expect(chat.onlineCount.value).toBe(3)
   })
 
@@ -118,7 +118,7 @@ describe('useSpaceRealtimeChat', () => {
     })
 
     await chat.connect()
-    const socket = MockWebSocket.instances[0]
+    const socket = MockWebSocket.instances[0]!
     socket.emitOpen()
 
     socket.emitMessage(JSON.stringify({
@@ -180,7 +180,7 @@ describe('useSpaceRealtimeChat', () => {
     })
 
     await chat.connect()
-    const firstSocket = MockWebSocket.instances[0]
+    const firstSocket = MockWebSocket.instances[0]!
     firstSocket.emitOpen()
 
     firstSocket.close()
@@ -193,7 +193,7 @@ describe('useSpaceRealtimeChat', () => {
     vi.advanceTimersByTime(500)
     expect(MockWebSocket.instances).toHaveLength(2)
 
-    const secondSocket = MockWebSocket.instances[1]
+    const secondSocket = MockWebSocket.instances[1]!
     secondSocket.emitOpen()
 
     expect(secondSocket.sent).toContain('{"content":"queued-message"}')
@@ -212,7 +212,7 @@ describe('useSpaceRealtimeChat', () => {
     })
 
     await chat.connect()
-    const socket = MockWebSocket.instances[0]
+    const socket = MockWebSocket.instances[0]!
     socket.emitOpen()
     socket.emitClose({ code: 1008, reason: 'invalid token or username mismatch' })
 

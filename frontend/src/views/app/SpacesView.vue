@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, markRaw } from 'vue'
-import { Plus, ChatDotSquare, Document, ChatLineRound, Location, ShoppingCart, Headset, Star, Setting } from '@element-plus/icons-vue'
+import { Plus, ChatDotSquare, Document, ChatLineRound, Location, ShoppingCart, Headset, Star, Setting, Search } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import SpaceRealtimeChatPanel from '@/features/realtime-chat/SpaceRealtimeChatPanel.vue'
 import ResourceList from '@/features/spaces/ResourceList.vue'
@@ -14,8 +14,10 @@ import SpaceSidebar from '@/features/spaces/SpaceSidebar.vue'
 import SpaceSectionMenu from '@/features/spaces/SpaceSectionMenu.vue'
 import HomeHeader from '@/components/HomeHeader.vue'
 import { ArrowLeft } from '@element-plus/icons-vue'
+import { fuzzySort } from '@/utils/search'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 // State
@@ -25,10 +27,17 @@ const activeSectionId = ref<number>(1) // 1: Posts, 3: Library, 4: Policy, 5: Tr
 const isJoinLoading = ref(false)
 const posts = ref<any[]>([])
 const resources = ref<any[]>([]) // Added to store materials/policies
+const sectionSearchKeywords = ref<Record<number, string>>({
+  1: '',
+  3: '',
+  4: '',
+  5: '',
+})
 
 
 // Inline Post Detail State (simplified)
 const selectedPostId = ref<number | null>(null)
+const isApplyingRouteQuery = ref(false)
 
 const goBackToPosts = () => {
   selectedPostId.value = null
@@ -144,9 +153,8 @@ const fetchResourcesForSpace = async () => {
 
 
 watch(activeSpaceId, () => {
-  // If we change spaces, only reset selectedPostId if the query parameter doesn't match
-  const queryPostId = Number(router.currentRoute.value.query.postId)
-  if (!queryPostId || isNaN(queryPostId)) {
+  sectionSearchKeywords.value = { 1: '', 3: '', 4: '', 5: '' }
+  if (!isApplyingRouteQuery.value) {
     goBackToPosts()
   }
   updateRecentSpaces()
@@ -158,12 +166,9 @@ watch(activeSpaceId, () => {
 })
 
 watch(activeSectionId, () => {
-  // Only clear selectedPostId if we are navigating sections manually
-  const queryPostId = Number(router.currentRoute.value.query.postId)
-  if (!queryPostId || isNaN(queryPostId)) {
+  if (!isApplyingRouteQuery.value) {
     goBackToPosts()
   }
-  
   if ([1, 2, 5, 6, 7].includes(activeSectionId.value)) {
     fetchPostsForSpace()
   } else if ([3, 4].includes(activeSectionId.value)) {
@@ -171,24 +176,23 @@ watch(activeSectionId, () => {
   }
 })
 
-watch(
-  () => router.currentRoute.value.query,
-  (newQuery) => {
-    const spaceId = Number(newQuery.spaceId)
-    const postId = Number(newQuery.postId)
-    
-    if (spaceId && !isNaN(spaceId) && spaceId !== activeSpaceId.value) {
-      activeSpaceId.value = spaceId
-    }
-    
-    if (postId && !isNaN(postId) && postId !== selectedPostId.value) {
-      selectedPostId.value = postId
-      activeSectionId.value = 1
-    } else if (!postId || isNaN(postId)) {
-      selectedPostId.value = null
-    }
+const applyRouteQuery = () => {
+  const rawSpaceId = Number(route.query.spaceId)
+  const rawSectionId = Number(route.query.sectionId)
+  const rawPostId = Number(route.query.postId)
+
+  isApplyingRouteQuery.value = true
+  if (rawSpaceId && !Number.isNaN(rawSpaceId)) {
+    activeSpaceId.value = rawSpaceId
   }
-)
+  if (rawSectionId && [1, 2, 3, 4, 5, 6, 7].includes(rawSectionId)) {
+    activeSectionId.value = rawSectionId
+  }
+  if (rawPostId && !Number.isNaN(rawPostId)) {
+    selectedPostId.value = rawPostId
+  }
+  isApplyingRouteQuery.value = false
+}
 
 onMounted(async () => {
   await fetchCategories()
@@ -198,18 +202,9 @@ onMounted(async () => {
   }
   loadRecentSpaces()
   
-  const querySpaceId = Number(router.currentRoute.value.query.spaceId)
-  const queryPostId = Number(router.currentRoute.value.query.postId)
-  
-  if (querySpaceId && !isNaN(querySpaceId)) {
-    activeSpaceId.value = querySpaceId
-  } else if (!activeSpaceId.value && subscribedSpaces.value.length > 0) {
+  applyRouteQuery()
+  if (!activeSpaceId.value && subscribedSpaces.value.length > 0) {
     activeSpaceId.value = subscribedSpaces.value[0].id
-  }
-  
-  if (queryPostId && !isNaN(queryPostId)) {
-    selectedPostId.value = queryPostId
-    activeSectionId.value = 1
   }
   
   if (activeSpaceId.value) {
@@ -222,6 +217,14 @@ onMounted(async () => {
     }
   }
 })
+
+watch(
+  () => route.query,
+  () => {
+    applyRouteQuery()
+  },
+  { deep: true },
+)
 
 const handleJoinSpace = async () => {
   if (!authStore.isAuthenticated) {
@@ -282,6 +285,44 @@ const activeSection = computed(() => {
   return sections.value.find((s: any) => s.id === activeSectionId.value)
 })
 
+const isSectionSearchEnabled = computed(
+  () => [1, 3, 4, 5].includes(activeSectionId.value) && !selectedPostId.value,
+)
+
+const currentSectionSearchKeyword = computed({
+  get: () => sectionSearchKeywords.value[activeSectionId.value] || '',
+  set: (value: string) => {
+    sectionSearchKeywords.value[activeSectionId.value] = value
+  },
+})
+
+const sectionSearchPlaceholder = computed(() => {
+  if (activeSectionId.value === 1) return '搜索发帖区关键词...'
+  if (activeSectionId.value === 5) return '搜索交易专区关键词...'
+  if (activeSectionId.value === 3) return '搜索题库区资料关键词...'
+  if (activeSectionId.value === 4) return '搜索学校政策区关键词...'
+  return '搜索关键词...'
+})
+
+const filteredPosts = computed(() => {
+  const keyword = currentSectionSearchKeyword.value.trim()
+  if (!keyword) return posts.value
+  return fuzzySort(posts.value, keyword, (item: any) => [
+    { text: item.title, weight: 10 },
+    { text: item.summary || item.content, weight: 4 },
+  ])
+})
+
+const filteredResources = computed(() => {
+  const keyword = currentSectionSearchKeyword.value.trim()
+  if (!keyword) return resources.value
+  return fuzzySort(resources.value, keyword, (item: any) => [
+    { text: item.title, weight: 10 },
+    { text: item.description, weight: 4 },
+    { text: item.filename, weight: 3 },
+  ])
+})
+
 // Create Post State
 
 const isAdmin = computed(() => {
@@ -320,7 +361,11 @@ const sections = ref([
   <div class="min-h-screen bg-[var(--c-fog)] flex flex-col h-screen overflow-hidden">
     <!-- Header: Shrink 0 to keep constant height -->
     <div class="shrink-0">
-      <HomeHeader />
+      <HomeHeader
+        :space-id="activeSpaceId"
+        :space-name="activeSpace?.name || ''"
+        :space-section-id="activeSectionId"
+      />
     </div>
 
     <div class="flex-1 flex overflow-hidden">
@@ -360,6 +405,20 @@ const sections = ref([
           </div>
           
           <div class="flex items-center gap-x-4">
+            <div
+              v-if="isSectionSearchEnabled"
+              data-testid="space-section-search"
+              class="flex w-[300px] h-9 items-center gap-2 rounded-full border border-[var(--c-navy)]/10 bg-[var(--c-fog)]/70 px-3 transition-all focus-within:border-[var(--c-gold)] focus-within:bg-white"
+            >
+              <el-icon class="text-[var(--c-navy)]/40 shrink-0" :size="16"><Search /></el-icon>
+              <input
+                v-model="currentSectionSearchKeyword"
+                data-testid="space-section-search-input"
+                type="text"
+                :placeholder="sectionSearchPlaceholder"
+                class="w-full bg-transparent text-sm text-[var(--c-navy)] outline-none"
+              />
+            </div>
             <template v-if="activeSpace">
               <button 
                 v-if="!isSubscribed"
@@ -443,12 +502,21 @@ const sections = ref([
 
           <!-- List State (for posts) -->
           <div v-else-if="[1, 2, 5, 6, 7].includes(activeSectionId)" class="max-w-[800px] mx-auto pb-24">
-            <PostList :posts="posts" @read="id => selectedPostId = id" />
+            <PostList
+              :posts="filteredPosts"
+              :search-keyword="currentSectionSearchKeyword"
+              @read="id => selectedPostId = id"
+            />
           </div>
           
           <!-- Library / Policy State (for resources) -->
           <div v-else-if="[3, 4].includes(activeSectionId)" class="max-w-[800px] mx-auto pb-24">
-            <ResourceList :resources="resources" :active-space-name="activeSpace?.name || ''" @download="downloadFile" />
+            <ResourceList
+              :resources="filteredResources"
+              :active-space-name="activeSpace?.name || ''"
+              :search-keyword="currentSectionSearchKeyword"
+              @download="downloadFile"
+            />
           </div>
         </div>
 

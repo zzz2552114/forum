@@ -51,9 +51,9 @@ describe('useRealtimeChat', () => {
     const connected = chat.connect('alice', 'ws://localhost/ws/chat')
     expect(connected).toBe(true)
     expect(MockWebSocket.instances).toHaveLength(1)
-    expect(MockWebSocket.instances[0].url).toContain('username=alice')
+    expect(MockWebSocket.instances[0]!.url).toContain('username=alice')
 
-    MockWebSocket.instances[0].emitOpen()
+    MockWebSocket.instances[0]!.emitOpen()
     expect(chat.isConnected.value).toBe(true)
     expect(chat.isConnecting.value).toBe(false)
   })
@@ -61,7 +61,7 @@ describe('useRealtimeChat', () => {
   it('queues incoming messages and updates online count', () => {
     const chat = useRealtimeChat()
     chat.connect('alice', 'ws://localhost/ws/chat')
-    const socket = MockWebSocket.instances[0]
+    const socket = MockWebSocket.instances[0]!
 
     socket.emitOpen()
     socket.emitMessage(JSON.stringify({
@@ -81,8 +81,8 @@ describe('useRealtimeChat', () => {
 
     expect(chat.messages.value).toHaveLength(2)
     expect(chat.onlineCount.value).toBe(1)
-    expect(chat.messages.value[1].username).toBe('alice')
-    expect(chat.messages.value[1].content).toBe('hello')
+    expect(chat.messages.value[1]?.username).toBe('alice')
+    expect(chat.messages.value[1]?.content).toBe('hello')
   })
 
   it('validates outgoing message before sending', () => {
@@ -91,7 +91,7 @@ describe('useRealtimeChat', () => {
     expect(chat.sendMessage('hello')).toBe(false)
     expect(chat.connect('alice', 'ws://localhost/ws/chat')).toBe(true)
 
-    const socket = MockWebSocket.instances[0]
+    const socket = MockWebSocket.instances[0]!
     socket.emitOpen()
 
     expect(chat.sendMessage('   ')).toBe(false)

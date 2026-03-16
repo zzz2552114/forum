@@ -1,4 +1,4 @@
-﻿import { ref } from 'vue'
+import { ref } from 'vue'
 
 import request from '@/utils/request'
 
@@ -37,8 +37,8 @@ export const useAiMentionTrigger = () => {
 
     try {
       const task = await request.post('/ai-mention/tasks', payload)
-      latestTask.value = task as AiMentionTask
-      return task as AiMentionTask
+      latestTask.value = (task as unknown) as AiMentionTask
+      return (task as unknown) as AiMentionTask
     } catch (error: unknown) {
       errorMessage.value = error instanceof Error ? error.message : 'Failed to create AI mention task.'
       throw error
@@ -69,8 +69,8 @@ export const useAiMentionTrigger = () => {
 
   const fetchTask = async (taskId: string): Promise<AiMentionTask> => {
     const task = await request.get(`/ai-mention/tasks/${taskId}`)
-    latestTask.value = task as AiMentionTask
-    return task as AiMentionTask
+    latestTask.value = (task as unknown) as AiMentionTask
+    return (task as unknown) as AiMentionTask
   }
 
   const pollTaskUntilFinal = async (

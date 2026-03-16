@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { ArrowLeft, MoreFilled, ArrowUpBold, StarFilled, CaretTop, CaretBottom, ChatDotRound, Star, ChatLineRound } from '@element-plus/icons-vue'
+import { MoreFilled, ArrowUpBold, StarFilled, CaretTop, CaretBottom, ChatDotRound, Star, ChatLineRound } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'

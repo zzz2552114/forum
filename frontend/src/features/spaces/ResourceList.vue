@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { Document } from '@element-plus/icons-vue'
-
-defineProps<{
-  resources: any[]
-  activeSpaceName: string
-}>()
+import { highlightKeywordHtml } from '@/utils/search'
 
 defineEmits(['download'])
+
+const props = defineProps<{
+  resources: any[]
+  activeSpaceName: string
+  searchKeyword?: string
+}>()
+
+const renderHighlight = (value: string) => highlightKeywordHtml(value, props.searchKeyword || '')
 </script>
 
 <template>
@@ -25,9 +29,7 @@ defineEmits(['download'])
             <el-icon :size="24"><Document /></el-icon>
           </div>
           <div class="min-w-0">
-            <h4 class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors" :title="mat.title">
-              {{ mat.title }}
-            </h4>
+            <h4 class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors" :title="mat.title" v-html="renderHighlight(mat.title || '')"></h4>
             <div class="flex items-center gap-x-4 text-sm text-[var(--c-navy)]/50">
               <span class="flex items-center gap-x-1 font-medium">
                 <span class="w-1.5 h-1.5 rounded-full bg-[var(--c-gold)] opacity-80 inline-block"></span>
@@ -59,3 +61,12 @@ defineEmits(['download'])
     </div>
   </template>
 </template>
+
+<style scoped>
+:deep(.search-highlight) {
+  background: rgba(245, 191, 66, 0.35);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+</style>

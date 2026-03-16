@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { buildNotificationWsUrl, useNotificationSocket } from './useNotificationSocket'
 
@@ -60,10 +60,10 @@ describe('useNotificationSocket', () => {
     expect(connected).toBe(true)
     expect(MockWebSocket.instances).toHaveLength(1)
 
-    MockWebSocket.instances[0].emitOpen()
+    MockWebSocket.instances[0]?.emitOpen()
     expect(client.connectionState.value).toBe('connected')
 
-    MockWebSocket.instances[0].emitMessage(JSON.stringify({
+    MockWebSocket.instances[0]?.emitMessage(JSON.stringify({
       type: 'notification',
       notification_id: 10,
       task_id: 'task-1',
@@ -75,7 +75,7 @@ describe('useNotificationSocket', () => {
       created_at: '2026-03-08T10:00:00',
     }))
 
-    MockWebSocket.instances[0].emitMessage(JSON.stringify({
+    MockWebSocket.instances[0]?.emitMessage(JSON.stringify({
       type: 'notification',
       notification_id: 10,
       task_id: 'task-1',
@@ -88,7 +88,7 @@ describe('useNotificationSocket', () => {
     }))
 
     expect(client.notifications.value).toHaveLength(1)
-    expect(client.notifications.value[0].task_id).toBe('task-1')
+    expect(client.notifications.value[0]?.task_id).toBe('task-1')
   })
 
   it('merges polled notifications with dedupe', async () => {
