@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen flex flex-col bg-slate-50">
-    <Header />
+    <HomeHeader />
     <main class="flex-grow container mx-auto px-4 py-6">
       <router-view />
     </main>
@@ -11,5 +11,5 @@
 </template>
 
 <script setup lang="ts">
-import Header from '@/components/common/Header.vue'
+import HomeHeader from '@/components/HomeHeader.vue'
 </script>

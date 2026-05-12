@@ -5,7 +5,7 @@ from app.schemas.common import ResponseBase, PaginationData
 from app.core.responses import success_response, paginate_response
 from app.models.forum import Post, PostLike
 from app.models.category import Space
-from app.api.deps import get_current_active_user, get_current_user
+from app.api.deps import get_current_active_user, get_current_user, ensure_space_subscription
 from app.models.user import User
 
 router = APIRouter()
@@ -13,10 +13,23 @@ router = APIRouter()
 from app.models.enums import ContentStatus
 
 @router.get("/", response_model=ResponseBase[PaginationData[PostResponse]])
-async def read_posts(space_id: Optional[int] = None, page: int = 1, page_size: int = 20):
+async def read_posts(
+    space_id: Optional[int] = None, 
+    tag_name: Optional[str] = None,
+    author_id: Optional[int] = None,
+    bookmarked_by_id: Optional[int] = None,
+    page: int = 1, 
+    page_size: int = 20
+):
     query = Post.filter(status=ContentStatus.PUBLISHED)
     if space_id:
         query = query.filter(space_id=space_id)
+    if tag_name:
+        query = query.filter(tags__name=tag_name).distinct()
+    if author_id:
+        query = query.filter(author_id=author_id)
+    if bookmarked_by_id:
+        query = query.filter(bookmarked_by__user_id=bookmarked_by_id).distinct()
         
     total = await query.count()
     skip = (page - 1) * page_size
@@ -31,8 +44,12 @@ async def read_posts(space_id: Optional[int] = None, page: int = 1, page_size: i
             content=p.content,
             space_id=p.space.id,
             author_id=p.author.id,
+            author={"id": p.author.id, "username": p.author.username, "nickname": p.author.nickname, "avatar_url": p.author.avatar_url} if p.author else None,
+            space={"id": p.space.id, "name": p.space.name} if p.space else None,
             view_count=p.view_count,
             like_count=p.like_count,
+            comment_count=p.comment_count,
+            bookmark_count=p.bookmark_count,
             created_at=p.created_at,
             updated_at=p.updated_at,
             tags=list(p.tags) if hasattr(p, "tags") else []
@@ -45,6 +62,8 @@ async def create_post(post_in: PostCreate, current_user: User = Depends(get_curr
     if not space:
         raise HTTPException(status_code=404, detail="Space not found")
         
+    await ensure_space_subscription(current_user, space.id)
+        
     post = await Post.create(
         title=post_in.title,
         content=post_in.content,
@@ -52,11 +71,19 @@ async def create_post(post_in: PostCreate, current_user: User = Depends(get_curr
         author_id=current_user.id
     )
     
+    from app.models.tag import Tag
     if post_in.tag_ids:
-        from app.models.tag import Tag
         tags = await Tag.filter(id__in=post_in.tag_ids)
         if tags:
             await post.tags.add(*tags)
+    
+    if post_in.tag_names:
+        new_tags = []
+        for name in post_in.tag_names:
+            tag, _ = await Tag.get_or_create(name=name)
+            new_tags.append(tag)
+        if new_tags:
+            await post.tags.add(*new_tags)
             
     # Refetch correctly formatted
     await post.fetch_related("author", "space", "tags")
@@ -67,8 +94,12 @@ async def create_post(post_in: PostCreate, current_user: User = Depends(get_curr
         content=post.content,
         space_id=post.space_id,
         author_id=post.author_id,
+        author={"id": current_user.id, "username": current_user.username, "nickname": current_user.nickname, "avatar_url": current_user.avatar_url},
+        space={"id": space.id, "name": space.name},
         view_count=post.view_count,
         like_count=post.like_count,
+        comment_count=post.comment_count,
+        bookmark_count=post.bookmark_count,
         created_at=post.created_at,
         updated_at=post.updated_at,
         tags=list(post.tags) if hasattr(post, "tags") else []
@@ -92,8 +123,12 @@ async def read_post(post_id: int):
         content=post.content,
         space_id=post.space.id,
         author_id=post.author.id,
+        author={"id": post.author.id, "username": post.author.username, "nickname": post.author.nickname, "avatar_url": post.author.avatar_url} if post.author else None,
+        space={"id": post.space.id, "name": post.space.name} if post.space else None,
         view_count=post.view_count,
         like_count=post.like_count,
+        comment_count=post.comment_count,
+        bookmark_count=post.bookmark_count,
         created_at=post.created_at,
         updated_at=post.updated_at,
         tags=list(post.tags) if hasattr(post, "tags") else []
@@ -113,3 +148,23 @@ async def like_post(post_id: int, current_user: User = Depends(get_current_activ
     await Post.filter(id=post.id).update(like_count=F("like_count") + 1)
     
     return success_response({"message": "Post liked successfully"})
+
+@router.post("/{post_id}/bookmark")
+async def bookmark_post(post_id: int, current_user: User = Depends(get_current_active_user)):
+    from app.models.interactions import PostBookmark
+    post = await Post.get_or_none(id=post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+        
+    bookmark, created = await PostBookmark.get_or_create(user_id=current_user.id, post_id=post_id)
+    if not created:
+        # If already bookmarked, let's un-bookmark it (toggle)
+        await bookmark.delete()
+        from tortoise.expressions import F
+        await Post.filter(id=post.id).update(bookmark_count=F("bookmark_count") - 1)
+        return success_response({"message": "Post unbookmarked successfully", "bookmarked": False})
+        
+    from tortoise.expressions import F
+    await Post.filter(id=post.id).update(bookmark_count=F("bookmark_count") + 1)
+    
+    return success_response({"message": "Post bookmarked successfully", "bookmarked": True})

@@ -43,3 +43,24 @@ class SpaceMaster(models.Model):
     class Meta:
         table = "space_masters"
         unique_together = (("user_id", "space_id"),)
+
+class ResourceBookmark(models.Model):
+    id = fields.IntField(primary_key=True)
+    user = fields.ForeignKeyField("models.User", related_name="resource_bookmarks")
+    resource = fields.ForeignKeyField("models.Resource", related_name="bookmarked_by")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "resource_bookmarks"
+        unique_together = (("user_id", "resource_id"),)
+
+class ResourceDownload(models.Model):
+    id = fields.IntField(primary_key=True)
+    user = fields.ForeignKeyField("models.User", related_name="resource_downloads")
+    resource = fields.ForeignKeyField("models.Resource", related_name="downloaded_by")
+    
+    downloaded_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "resource_downloads"

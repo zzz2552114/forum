@@ -1,0 +1,1 @@
+export const SEARCH_RESOURCE_PAGE_SIZE = 100

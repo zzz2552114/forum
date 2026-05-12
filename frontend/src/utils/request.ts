@@ -31,6 +31,10 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   response => {
     NProgress.done()
+    // Blob responses (file downloads) should be returned raw, not unwrapped
+    if (response.config.responseType === 'blob') {
+      return response
+    }
     const res = response.data
     // Since our backend uses a unified ResponseBase format: {code, message, data}
     // and HTTP exceptions return something similar or valid HTTP status codes
@@ -42,11 +46,11 @@ service.interceptors.response.use(
   },
   error => {
     NProgress.done()
-    ElMessage.error(error.response?.data?.message || error.message || 'Network Error')
-    // We can also handle 401 Unauthorized globally here to redirect to /login
+    // Do NOT show ElMessage here — let the calling code handle user-facing error messages
+    // to avoid double-popup (interceptor + catch block both showing toast).
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      window.location.href = '/?showLogin=true'
     }
     return Promise.reject(error)
   }

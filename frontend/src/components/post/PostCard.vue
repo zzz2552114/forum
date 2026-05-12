@@ -1,5 +1,5 @@
 <template>
-  <el-card shadow="hover" class="border-none rounded-xl cursor-pointer hover:shadow-md transition-shadow group" @click="$router.push(`/posts/${post.id}`)">
+  <el-card shadow="hover" class="border-none rounded-xl cursor-pointer hover:shadow-md transition-shadow group" @click="$router.push({ path: '/spaces', query: { spaceId: post.space_id || post.space?.id, postId: post.id } })">
     <div class="flex gap-4">
       <div class="hidden sm:flex flex-col items-center gap-1 shrink-0 pt-1">
         <el-button type="info" plain circle size="small" class="border-none bg-slate-50 hover:bg-slate-100 hover:text-blue-500">
@@ -17,6 +17,10 @@
           <span class="font-medium text-slate-700 hover:text-blue-600 truncate">{{ post.author?.nickname || post.author?.username || '佚名' }}</span>
           <span>&middot;</span>
           <span>{{ new Date(post.created_at).toLocaleDateString() }}</span>
+          <template v-if="post.space">
+            <span>&middot;</span>
+            <el-tag size="small" type="info" effect="light" class="rounded-full border-none">来自 {{ post.space.name }}</el-tag>
+          </template>
           
           <template v-if="post.tags && post.tags.length > 0">
             <span>&middot;</span>

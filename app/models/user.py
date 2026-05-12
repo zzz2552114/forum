@@ -17,12 +17,16 @@ class User(models.Model):
     
     # Roles and Permissions
     role = fields.CharEnumField(UserRole, default=UserRole.USER)
-    trust_level = fields.IntEnumField(TrustLevel, default=TrustLevel.GUEST)
+    trust_level = fields.IntEnumField(TrustLevel, default=TrustLevel.BASIC)
     reputation_score = fields.IntField(default=0)
     
     is_active = fields.BooleanField(default=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
+    
+    # AI Preferences
+    ai_api_key = fields.CharField(max_length=255, null=True)
+    ai_model = fields.CharField(max_length=50, null=True, default="qwen-plus")
 
     class Meta:
         table = "users"

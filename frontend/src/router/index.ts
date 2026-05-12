@@ -1,95 +1,130 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import PublicLayout from '@/layouts/PublicLayout.vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { useAuthStore } from '@/stores/auth'
+import { ElMessage } from 'element-plus'
 import NProgress from 'nprogress'
+
+import { useAuthStore } from '@/stores/auth'
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    component: PublicLayout,
-    children: [
-      {
-        path: '',
-        name: 'Home',
-        component: () => import('@/views/public/HomeView.vue'),
-        meta: { title: '首页' }
-      },
-      {
-        path: 'login',
-        name: 'Login',
-        component: () => import('@/views/public/LoginView.vue'),
-        meta: { title: '登录' }
-      },
-      {
-        path: 'register',
-        name: 'Register',
-        component: () => import('@/views/public/RegisterView.vue'),
-        meta: { title: '注册' }
-      },
-      {
-        path: 'explore/spaces',
-        name: 'ExploreSpaces',
-        component: () => import('@/views/public/ExploreSpacesView.vue'),
-        meta: { title: '探索空间' }
-      },
-      {
-        path: 'spaces/:spaceId',
-        name: 'SpaceDetail',
-        component: () => import('@/views/public/SpaceView.vue'),
-        meta: { title: '空间主页' }
-      },
-      {
-        path: 'posts/:postId',
-        name: 'PostDetail',
-        component: () => import('@/views/public/PostDetailView.vue'),
-        meta: { title: '帖子详情' }
-      },
-      {
-        path: 'search',
-        name: 'Search',
-        component: () => import('@/views/public/SearchView.vue'),
-        meta: { title: '搜索' }
-      }
-    ]
+    name: 'Landing',
+    component: () => import('@/views/public/HomeView.vue'),
+    meta: { title: '首页' },
   },
   {
-    path: '/app',
-    component: AppLayout,
-    meta: { requiresAuth: true },
-    children: [
-      {
-        path: 'feed',
-        name: 'Feed',
-        component: () => import('@/views/app/FeedView.vue'),
-        meta: { title: '发现' }
-      },
-      {
-        path: '/posts/new',
-        name: 'PostEditor',
-        component: () => import('@/views/app/PostEditorView.vue'),
-        meta: { title: '发布帖子' }
-      },
-      {
-        path: '/me/overview',
-        name: 'MeOverview',
-        component: () => import('@/views/app/MeOverviewView.vue'),
-        meta: { title: '我的主页' }
-      },
-      {
-        path: '/notifications',
-        name: 'Notifications',
-        component: () => import('@/views/app/NotificationsView.vue'),
-        meta: { title: '消息中心' }
-      }
-    ]
-  }
+    path: '/home',
+    name: 'HomeDashboard',
+    component: () => import('@/views/app/HomeDashboardView.vue'),
+    meta: { title: '主页', requiresAuth: false },
+  },
+  {
+    path: '/spaces',
+    name: 'Spaces',
+    component: () => import('@/views/app/SpacesView.vue'),
+    meta: { title: '讨论空间', requiresAuth: false },
+  },
+  {
+    path: '/materials',
+    name: 'Materials',
+    component: () => import('@/views/app/MaterialsView.vue'),
+    meta: { title: '资料汇编', requiresAuth: false },
+  },
+  {
+    path: '/app/feed',
+    name: 'Feed',
+    component: () => import('@/views/app/FeedView.vue'),
+    meta: { title: '发现', requiresAuth: true },
+  },
+  {
+    path: '/explore',
+    name: 'Explore',
+    component: () => import('@/views/app/ExploreSpacesView.vue'),
+    meta: { title: '无限探索', requiresAuth: true },
+  },
+  {
+    path: '/explore-spaces',
+    name: 'ExploreAllSpaces',
+    component: () => import('@/views/app/ExploreAllSpacesView.vue'),
+    meta: { title: '发现空间', requiresAuth: true },
+  },
+  {
+    path: '/search/posts',
+    name: 'SearchPosts',
+    component: () => import('@/views/app/SearchPostsView.vue'),
+    meta: { title: 'Post Search', requiresAuth: false },
+  },
+  {
+    path: '/search/materials',
+    name: 'SearchMaterials',
+    component: () => import('@/views/app/SearchMaterialsView.vue'),
+    meta: { title: 'Material Search', requiresAuth: false },
+  },
+  {
+    path: '/search/explore',
+    name: 'SearchExplore',
+    component: () => import('@/views/app/SearchExploreView.vue'),
+    meta: { title: 'Explore Search', requiresAuth: false },
+  },
+  {
+    path: '/me/overview',
+    name: 'MeOverview',
+    component: () => import('@/views/app/MeOverviewView.vue'),
+    meta: { title: '我的主页', requiresAuth: true },
+  },
+  {
+    path: '/me/posts',
+    name: 'MePosts',
+    component: () => import('@/views/app/MyPostsView.vue'),
+    meta: { title: '我的帖子', requiresAuth: true },
+  },
+  {
+    path: '/me/favorites',
+    name: 'MeFavorites',
+    component: () => import('@/views/app/MyFavoritePostsView.vue'),
+    meta: { title: '我的收藏', requiresAuth: true },
+  },
+  {
+    path: '/me/materials',
+    name: 'MeMaterials',
+    component: () => import('@/views/app/MyMaterialsView.vue'),
+    meta: { title: '我的资料库', requiresAuth: true },
+  },
+  {
+    path: '/me/comments',
+    name: 'MeComments',
+    component: () => import('@/views/app/MyCommentsView.vue'),
+    meta: { title: '我的评论', requiresAuth: true },
+  },
+  {
+    path: '/me/likes',
+    name: 'MeLikes',
+    component: () => import('@/views/app/MyLikesView.vue'),
+    meta: { title: '我的点赞', requiresAuth: true },
+  },
+  {
+    path: '/notifications',
+    name: 'Notifications',
+    component: () => import('@/views/app/NotificationsView.vue'),
+    meta: { title: '消息中心', requiresAuth: true },
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/app/ProfileView.vue'),
+    meta: { title: '个人主页', requiresAuth: true },
+  },
+  {
+    path: '/me/ai',
+    name: 'MeAi',
+    component: () => import('@/views/app/MyAiView.vue'),
+    meta: { title: '我的AI', requiresAuth: true },
+  },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 })
 
 // Route Guards — use return-only style (Vue Router 4)
@@ -107,8 +142,32 @@ router.beforeEach(async (to) => {
     await authStore.fetchMe()
   }
 
+  // Load authorization snapshot (from codex permission system)
+  if (!authStore.authorizationLoaded) {
+    await authStore.fetchAuthorization()
+  }
+
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return { path: '/login', query: { redirect: to.fullPath } }
+    return { path: '/', query: { redirect: to.fullPath, showLogin: 'true' } }
+  }
+
+  // Trust level guard (from codex)
+  const requiredTrust = Number(to.meta.requiredTrust ?? -1)
+  if (requiredTrust >= 0 && !authStore.hasTrustLevel(requiredTrust)) {
+    ElMessage.warning(`当前功能需要信任等级 ${requiredTrust}`)
+    return false
+  }
+
+  // Permission guard (from codex)
+  const requiredPermissions = Array.isArray(to.meta.requiredPermissions)
+    ? (to.meta.requiredPermissions as string[])
+    : []
+
+  for (const permission of requiredPermissions) {
+    if (!authStore.hasPermission(permission)) {
+      ElMessage.warning(`权限不足：${permission}`)
+      return false
+    }
   }
   // return undefined = allow navigation
 })

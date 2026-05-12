@@ -1,0 +1,397 @@
+<script setup lang="ts">
+import { computed, markRaw, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { Document, Location, Monitor, Plus, Present, Search, Star, StarFilled, Trophy, Upload } from '@element-plus/icons-vue'
+
+import HomeHeader from '@/components/HomeHeader.vue'
+import { SEARCH_RESOURCE_PAGE_SIZE } from '@/constants/search'
+import { useAuthStore } from '@/stores/auth'
+import request from '@/utils/request'
+import { fuzzySort, highlightKeywordHtml } from '@/utils/search'
+
+const authStore = useAuthStore()
+const router = useRouter()
+const route = useRoute()
+
+const activeSectionId = ref(1)
+const searchQuery = ref('')
+const selectedSchoolId = ref<number | null>(null)
+
+const sections = ref([
+  { id: 1, name: '学校政策', icon: markRaw(Location), unread: 0 },
+  { id: 2, name: '大学生优惠合集', icon: markRaw(Present), unread: 0 },
+  { id: 3, name: '保研经验分享', icon: markRaw(Star), unread: 0 },
+  { id: 4, name: '论坛精华帖', icon: markRaw(Trophy), unread: 0 },
+  { id: 5, name: '每日热度榜', icon: markRaw(Monitor), unread: 0 },
+])
+const activeSection = computed(() => sections.value.find((item) => item.id === activeSectionId.value))
+
+const categories = ref<any[]>([])
+const spaces = ref<any[]>([])
+const resources = ref<any[]>([])
+
+const showUploadModal = ref(false)
+const selectedFile = ref<File | null>(null)
+const isUploading = ref(false)
+const uploadForm = ref({
+  title: '',
+  description: '',
+  school_space_id: null as number | null,
+  resource_type: 'policy',
+  version_note: 'Initial Upload',
+})
+
+const normalizeName = (value: unknown) => String(value || '').toLowerCase()
+const isSchoolCategory = (category: any) =>
+  ['学校', 'school'].includes(normalizeName(category?.name)) || normalizeName(category?.slug) === 'school'
+
+const schoolCategory = computed(() => categories.value.find((item: any) => isSchoolCategory(item)))
+const schoolSpaces = computed(() => {
+  if (!schoolCategory.value) return []
+  return spaces.value.filter((item: any) => item.category_id === schoolCategory.value.id)
+})
+
+const fetchCategories = async () => {
+  try {
+    const res: any = await request.get('/categories/')
+    categories.value = Array.isArray(res) ? res : []
+  } catch (error) {
+    console.error('Failed to fetch categories', error)
+    categories.value = []
+  }
+}
+
+const fetchSpaces = async () => {
+  try {
+    const res: any = await request.get('/spaces/')
+    spaces.value = Array.isArray(res) ? res : []
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.message || error.message || '获取空间列表失败')
+    spaces.value = []
+  }
+}
+
+const fetchExploreResources = async () => {
+  if (activeSectionId.value !== 1) return
+  try {
+    const params: Record<string, any> = {
+      page: 1,
+      page_size: SEARCH_RESOURCE_PAGE_SIZE,
+      scope: 'explore',
+    }
+    if (searchQuery.value.trim()) params.keyword = searchQuery.value.trim()
+    if (selectedSchoolId.value) params.school_space_id = selectedSchoolId.value
+
+    const res: any = await request.get('/search/resources', { params })
+    resources.value = Array.isArray(res.items) ? res.items : []
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.message || error.message || '获取探索资料失败')
+  }
+}
+
+const handleSearch = async () => {
+  const keyword = searchQuery.value.trim()
+  if (!selectedSchoolId.value) {
+    const query: Record<string, string> = {}
+    if (keyword) query.keyword = keyword
+    router.push({ path: '/search/explore', query })
+    return
+  }
+  await fetchExploreResources()
+}
+
+const handleUploadClick = () => {
+  if (!authStore.isAuthenticated) {
+    ElMessage.warning('请先登录再上传政策资料')
+    router.push('/?showLogin=true')
+    return
+  }
+  showUploadModal.value = true
+}
+
+const handleFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    selectedFile.value = target.files[0] || null
+  }
+}
+
+const submitUpload = async () => {
+  if (!selectedFile.value) {
+    ElMessage.warning('请选择上传文件')
+    return
+  }
+  if (!uploadForm.value.title || !uploadForm.value.school_space_id) {
+    ElMessage.warning('请填写政策标题和所属学校')
+    return
+  }
+
+  isUploading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+    formData.append('biz_type', 'resource')
+
+    const fileRes: any = await request.post('/files/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+
+    await request.post('/resources/', {
+      title: uploadForm.value.title,
+      description: uploadForm.value.description,
+      school_space_id: uploadForm.value.school_space_id,
+      space_id: uploadForm.value.school_space_id,
+      resource_type: uploadForm.value.resource_type,
+      file_id: fileRes.id,
+      version_note: uploadForm.value.version_note,
+    })
+
+    ElMessage.success('政策上传成功')
+    showUploadModal.value = false
+    selectedFile.value = null
+    uploadForm.value = {
+      title: '',
+      description: '',
+      school_space_id: null,
+      resource_type: 'policy',
+      version_note: 'Initial Upload',
+    }
+    await fetchExploreResources()
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.message || error.response?.data?.detail || error.message || '上传失败')
+  } finally {
+    isUploading.value = false
+  }
+}
+
+const downloadFile = (resource: any) => {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    ElMessage.warning('请先登录再下载')
+    return
+  }
+  window.open(`/api/v1/resources/${resource.id}/download?token=${encodeURIComponent(token)}`, '_blank')
+  resource.download_count = (resource.download_count || 0) + 1
+}
+
+const toggleBookmark = async (resource: any) => {
+  try {
+    const res: any = await request.post(`/resources/${resource.id}/bookmark`)
+    resource.is_bookmarked = res.bookmarked
+    if (resource.is_bookmarked) {
+      resource.bookmark_count = (resource.bookmark_count || 0) + 1
+      ElMessage.success('已加入收藏')
+    } else {
+      resource.bookmark_count = Math.max(0, (resource.bookmark_count || 0) - 1)
+      ElMessage.success('已取消收藏')
+    }
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
+
+const filteredResources = computed(() => {
+  const sortedByTime = [...resources.value].sort(
+    (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
+  if (!searchQuery.value.trim()) return sortedByTime
+  return fuzzySort(sortedByTime, searchQuery.value, (item: any) => [
+    { text: item.title, weight: 10 },
+    { text: item.description, weight: 4 },
+    { text: item.school_space_name, weight: 3 },
+  ])
+})
+
+const renderHighlight = (value: string) => highlightKeywordHtml(value, searchQuery.value)
+
+onMounted(async () => {
+  await fetchCategories()
+  await fetchSpaces()
+
+  if (typeof route.query.keyword === 'string') searchQuery.value = route.query.keyword
+  const querySchoolId = Number(route.query.schoolSpaceId)
+  const querySpaceId = Number(route.query.spaceId)
+  if (!Number.isNaN(querySchoolId) && querySchoolId > 0) {
+    selectedSchoolId.value = querySchoolId
+  } else if (!Number.isNaN(querySpaceId) && querySpaceId > 0) {
+    selectedSchoolId.value = querySpaceId
+  }
+
+  await fetchExploreResources()
+})
+</script>
+
+<template>
+  <div class="min-h-screen bg-[var(--c-fog)] flex flex-col">
+    <HomeHeader />
+
+    <main class="flex-1 w-full max-w-[1280px] mx-auto px-[80px] py-10 pb-20 flex flex-col h-[calc(100vh-88px)]">
+      <div class="w-full bg-white rounded-[var(--radius-card)] p-6 shadow-sm border border-[var(--c-navy)]/5 mb-6 shrink-0 relative overflow-hidden">
+        <div class="absolute right-0 top-0 bottom-0 w-64 bg-gradient-to-l from-[var(--c-fog)] to-transparent pointer-events-none z-0"></div>
+        <div class="relative z-10 flex gap-x-3">
+          <div class="relative flex-1">
+            <el-icon class="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--c-navy)] opacity-40 z-10" :size="20"><Search /></el-icon>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="搜索探索资料（学校政策、指南等）..."
+              class="w-full h-14 bg-[var(--c-fog)] rounded-[16px] pl-12 pr-4 text-[var(--c-navy)] text-lg focus:outline-none focus:ring-2 focus:ring-[var(--c-gold)] focus:bg-white transition-all border border-transparent shadow-inner"
+              @keyup.enter="handleSearch"
+            />
+          </div>
+
+          <el-select v-model="selectedSchoolId" clearable placeholder="学校筛选" class="w-[190px]" size="large">
+            <el-option v-for="space in schoolSpaces" :key="space.id" :label="space.name" :value="space.id" />
+          </el-select>
+
+          <button class="h-14 px-8 bg-[var(--c-indigo)] text-white rounded-[16px] font-medium text-lg hover:bg-opacity-90 shadow-lg shadow-[var(--c-indigo)]/20 transition-all shrink-0" @click="handleSearch">
+            探索
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 min-h-0 flex gap-x-6">
+        <div class="w-[280px] shrink-0 bg-white rounded-[var(--radius-card)] shadow-sm border border-[var(--c-navy)]/5 overflow-y-auto custom-scrollbar flex flex-col p-3">
+          <div class="px-4 py-3 text-xs font-bold text-[var(--c-navy)]/40 tracking-widest uppercase mb-1">探索发现</div>
+          <div class="space-y-1">
+            <div
+              v-for="section in sections"
+              :key="section.id"
+              class="px-4 py-3 rounded-[12px] cursor-pointer font-medium transition-all group flex items-center gap-x-3"
+              :class="activeSectionId === section.id ? 'bg-[var(--c-indigo)] text-white shadow-md' : 'text-[var(--c-navy)] hover:bg-[var(--c-fog)]'"
+              @click="activeSectionId = section.id"
+            >
+              <el-icon :size="18" :class="activeSectionId === section.id ? 'text-[var(--c-gold)]' : 'opacity-70'">
+                <component :is="section.icon" />
+              </el-icon>
+              <span>{{ section.name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex-1 bg-white rounded-[var(--radius-card)] shadow-sm border border-[var(--c-navy)]/5 overflow-y-auto custom-scrollbar flex flex-col relative">
+          <div class="h-16 flex items-center justify-between px-6 border-b border-[var(--c-navy)]/5 shrink-0 sticky top-0 bg-white z-10">
+            <h3 class="text-lg font-bold text-[var(--c-navy)]">{{ activeSection?.name }}</h3>
+            <button
+              v-if="activeSectionId === 1"
+              class="px-5 py-1.5 bg-[var(--c-gold)] text-white rounded-full font-medium text-sm hover:bg-opacity-90 shadow-sm shadow-[var(--c-gold)]/20 transition-all flex items-center gap-x-1"
+              @click="handleUploadClick"
+            >
+              <el-icon><Plus /></el-icon> 上传政策
+            </button>
+          </div>
+
+          <div v-if="activeSectionId !== 1 || filteredResources.length === 0" class="flex-1 flex flex-col items-center justify-center text-[var(--c-navy)]/40">
+            <div class="w-24 h-24 mb-4 rounded-full bg-[var(--c-navy)]/5 flex items-center justify-center">
+              <el-icon :size="40" class="opacity-50"><component :is="activeSection?.icon" /></el-icon>
+            </div>
+            <p v-if="activeSectionId !== 1" class="text-xl font-medium mb-2">该分区开发中</p>
+            <p v-else class="text-xl font-medium mb-2">暂无探索资料</p>
+            <p class="mb-6 opacity-80">你可以切换学校筛选或更换关键词</p>
+          </div>
+
+          <div v-else class="p-4 space-y-3">
+            <div
+              v-for="resource in filteredResources"
+              :id="`explore-resource-${resource.id}`"
+              :key="resource.id"
+              class="group flex items-center justify-between p-4 rounded-2xl hover:bg-[var(--c-fog)] transition-colors border border-transparent hover:border-[var(--c-navy)]/5 cursor-pointer"
+            >
+              <div class="flex items-start gap-x-4 overflow-hidden pr-4 max-w-[80%]">
+                <div class="w-12 h-12 bg-white rounded-[12px] flex items-center justify-center text-[var(--c-navy)] shrink-0 border border-[var(--c-navy)]/5 shadow-sm">
+                  <el-icon :size="24"><Document /></el-icon>
+                </div>
+                <div class="min-w-0">
+                  <h4 class="font-medium text-lg text-[var(--c-navy)] mb-1 truncate group-hover:text-[var(--c-indigo)] transition-colors" v-html="renderHighlight(resource.title || '')"></h4>
+                  <div class="flex items-center gap-x-4 text-sm text-[var(--c-navy)]/50">
+                    <span class="flex items-center gap-x-1 font-medium">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[var(--c-gold)] opacity-80 inline-block"></span>
+                      {{ resource.school_space_name || schoolSpaces.find((s: any) => s.id === resource.school_space_id)?.name || '未知学校' }}
+                    </span>
+                    <span>最后更新：{{ new Date(resource.created_at).toLocaleDateString() }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-x-4 pl-4 border-l border-[var(--c-navy)]/5 shrink-0">
+                <button
+                  class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white border transition-all shadow-sm"
+                  :class="resource.is_bookmarked ? 'text-orange-500 border-orange-200 hover:bg-orange-50' : 'text-[var(--c-indigo)] border-[var(--c-navy)]/10 hover:border-orange-300 hover:text-orange-500'"
+                  @click.stop="toggleBookmark(resource)"
+                >
+                  <el-icon :size="20"><StarFilled v-if="resource.is_bookmarked" /><Star v-else /></el-icon>
+                </button>
+                <button
+                  class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-white text-[var(--c-indigo)] border border-[var(--c-navy)]/10 hover:border-[var(--c-indigo)] group-hover:bg-[var(--c-indigo)] group-hover:text-white transition-all shadow-sm"
+                  @click.stop="downloadFile(resource)"
+                >
+                  <el-icon :size="20" style="transform: rotate(180deg)"><Upload /></el-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <el-dialog v-model="showUploadModal" title="上传政策文件" width="500px" style="border-radius: var(--radius-card)">
+      <div class="space-y-4 pt-2 pb-2">
+        <div>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">政策标题 <span class="text-red-500">*</span></label>
+          <input v-model="uploadForm.title" placeholder="如：XX大学2026保研细则" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-[var(--c-gold)] outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">所属学校<span class="text-red-500">*</span></label>
+          <el-select v-model="uploadForm.school_space_id" placeholder="必须选择学校" class="w-full">
+            <el-option v-for="space in schoolSpaces" :key="space.id" :label="space.name" :value="space.id" />
+          </el-select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">选择文件 <span class="text-red-500">*</span></label>
+          <input type="file" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[var(--c-indigo)] file:text-white hover:file:opacity-90" @change="handleFileChange" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-[var(--c-navy)] mb-1">补充描述</label>
+          <textarea v-model="uploadForm.description" placeholder="关于该政策的说明..." rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-[var(--c-gold)] outline-none resize-none"></textarea>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-x-3">
+          <button class="px-5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50" :disabled="isUploading" @click="showUploadModal = false">取消</button>
+          <button class="px-5 py-1.5 rounded-lg bg-[var(--c-indigo)] text-white hover:bg-opacity-90 flex items-center justify-center disabled:opacity-50" :disabled="isUploading" @click="submitUpload">
+            <span v-if="isUploading" class="mr-2 inline-block w-4 h-4 border-2 border-[var(--c-fog)] border-t-transparent rounded-full animate-spin"></span>
+            {{ isUploading ? '上传中...' : '开始上传' }}
+          </button>
+        </div>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(15, 27, 45, 0.1);
+  border-radius: 4px;
+}
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(15, 27, 45, 0.2);
+}
+
+:deep(.search-highlight) {
+  background: rgba(245, 191, 66, 0.35);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+</style>

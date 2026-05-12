@@ -1,10 +1,11 @@
 from enum import Enum
 
+
 class UserRole(str, Enum):
     SUPER_ROOT = "super_root"
     ADMIN = "admin"
-    MASTER = "master"
     USER = "user"
+
 
 class TrustLevel(int, Enum):
     GUEST = 0  # 0未登录，只能浏览帖子
@@ -12,10 +13,12 @@ class TrustLevel(int, Enum):
     VERIFIED = 2  # 2可以隐藏学校，可以申请副版主
     CONTRIBUTOR = 3  # 3可以申请版主，可以申请新建模块
 
+
 class SpaceType(str, Enum):
     COURSE = "course"
     SCHOOL = "school"
     INTEREST = "interest"
+
 
 class PostType(str, Enum):
     DISCUSSION = "discussion"
@@ -26,6 +29,7 @@ class PostType(str, Enum):
     NOTICE = "notice"
     POLL = "poll"
 
+
 class ContentStatus(str, Enum):
     DRAFT = "draft"
     PUBLISHED = "published"
@@ -33,6 +37,7 @@ class ContentStatus(str, Enum):
     HIDDEN = "hidden"
     LOCKED = "locked"
     DELETED = "deleted"
+
 
 class SchoolVisibility(str, Enum):
     PUBLIC = "public"

@@ -16,14 +16,24 @@ from app.models.enums import ContentStatus
 async def read_resources(
     space_id: Optional[int] = None, 
     resource_type: Optional[str] = None,
+    uploader_id: Optional[int] = None,
+    bookmarked_by_id: Optional[int] = None,
+    downloaded_by_id: Optional[int] = None,
     page: int = 1, 
     page_size: int = 20
 ):
     query = Resource.filter(status=ContentStatus.PUBLISHED)
     if space_id:
-        query = query.filter(space_id=space_id)
+        from tortoise.expressions import Q
+        query = query.filter(Q(space_id=space_id) | Q(school_space_id=space_id))
     if resource_type:
         query = query.filter(resource_type=resource_type)
+    if uploader_id:
+        query = query.filter(uploader_id=uploader_id)
+    if bookmarked_by_id:
+        query = query.filter(bookmarked_by__user_id=bookmarked_by_id)
+    if downloaded_by_id:
+        query = query.filter(downloaded_by__user_id=downloaded_by_id).distinct()
         
     total = await query.count()
     skip = (page - 1) * page_size
@@ -37,6 +47,7 @@ async def read_resources(
             title=r.title,
             description=r.description,
             resource_type=r.resource_type,
+            school_space_id=r.school_space_id,
             space_id=r.space.id,
             filename=r.filename,
             uploader_id=r.uploader.id,
@@ -54,6 +65,9 @@ async def create_resource(resource_in: ResourceCreate, current_user: User = Depe
     if not space:
         raise HTTPException(status_code=404, detail="Space not found")
         
+    from app.api.deps import ensure_space_subscription
+    await ensure_space_subscription(current_user, space.id)
+        
     file = await File.get_or_none(id=resource_in.file_id)
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
@@ -62,6 +76,7 @@ async def create_resource(resource_in: ResourceCreate, current_user: User = Depe
         title=resource_in.title,
         description=resource_in.description,
         resource_type=resource_in.resource_type,
+        school_space_id=resource_in.school_space_id,
         space_id=space.id,
         uploader_id=current_user.id,
         filename=file.filename
@@ -80,6 +95,7 @@ async def create_resource(resource_in: ResourceCreate, current_user: User = Depe
         title=resource.title,
         description=resource.description,
         resource_type=resource.resource_type,
+        school_space_id=resource.school_space_id,
         space_id=resource.space_id,
         filename=resource.filename,
         uploader_id=resource.uploader_id,
@@ -101,6 +117,7 @@ async def read_resource(resource_id: int):
         title=resource.title,
         description=resource.description,
         resource_type=resource.resource_type,
+        school_space_id=resource.school_space_id,
         space_id=resource.space.id,
         filename=resource.filename,
         uploader_id=resource.uploader.id,
@@ -109,3 +126,88 @@ async def read_resource(resource_id: int):
         created_at=resource.created_at,
         versions=versions
     ))
+
+from fastapi.responses import FileResponse
+import os
+
+@router.post("/{resource_id}/bookmark")
+async def bookmark_resource(resource_id: int, current_user: User = Depends(get_current_active_user)):
+    from app.models.interactions import ResourceBookmark
+    resource = await Resource.get_or_none(id=resource_id)
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+        
+    bookmark, created = await ResourceBookmark.get_or_create(user_id=current_user.id, resource_id=resource_id)
+    if not created:
+        await bookmark.delete()
+        from tortoise.expressions import F
+        await Resource.filter(id=resource.id).update(bookmark_count=F("bookmark_count") - 1)
+        return success_response({"message": "Resource unbookmarked successfully", "bookmarked": False})
+        
+    from tortoise.expressions import F
+    await Resource.filter(id=resource.id).update(bookmark_count=F("bookmark_count") + 1)
+    
+    return success_response({"message": "Resource bookmarked successfully", "bookmarked": True})
+
+@router.get("/{resource_id}/download")
+async def download_resource(resource_id: int, token: str = Query(...)):
+    """Download a resource file. Accepts token as query parameter for browser-native download."""
+    from app.models.interactions import ResourceDownload
+    from jose import jwt, JWTError
+    from app.core.config import settings as app_settings
+    
+    # Validate token manually (since we're using query param, not Bearer header)
+    try:
+        payload = jwt.decode(token, app_settings.SECRET_KEY, algorithms=[app_settings.ALGORITHM])
+        user_id = int(payload.get("sub"))
+    except (JWTError, ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    current_user = await User.get_or_none(id=user_id)
+    if not current_user or not current_user.is_active:
+        raise HTTPException(status_code=401, detail="Invalid or inactive user")
+    
+    resource = await Resource.get_or_none(id=resource_id)
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+        
+    from app.api.deps import ensure_space_subscription
+    
+    # Check if the user is subscribed to the direct space or the parent school space
+    try:
+        await ensure_space_subscription(current_user, resource.space_id)
+    except HTTPException as e:
+        if resource.school_space_id and resource.school_space_id != resource.space_id:
+            try:
+                await ensure_space_subscription(current_user, resource.school_space_id)
+            except HTTPException:
+                raise e
+        else:
+            raise e
+        
+    # Record download
+    await ResourceDownload.create(user_id=current_user.id, resource_id=resource_id)
+    
+    from tortoise.expressions import F
+    await Resource.filter(id=resource.id).update(download_count=F("download_count") + 1)
+    
+    # Get the latest version explicitly
+    latest_version = await ResourceVersion.filter(resource_id=resource_id).order_by("-id").first()
+    if not latest_version:
+        raise HTTPException(status_code=404, detail="Resource has no file versions")
+    
+    # Get the file record explicitly
+    file_record = await File.get_or_none(id=latest_version.file_id)
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File record not found")
+    
+    # Convert DB url (/static/uploads/xxx) to local path (uploads/xxx)
+    local_path = file_record.url.replace("/static/", "")
+    if not os.path.exists(local_path):
+        raise HTTPException(status_code=404, detail=f"Physical file not found at {local_path}")
+        
+    return FileResponse(
+        path=local_path, 
+        filename=file_record.filename or resource.title,
+        media_type=file_record.content_type
+    )
