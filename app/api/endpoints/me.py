@@ -29,17 +29,26 @@ from app.models.resource import Resource
 router = APIRouter()
 
 
+# ==========================================
+# 获取当前登录用户自己的个人资料
+# ==========================================
 @router.get("/", response_model=ResponseBase[UserProfileResponse])
 async def read_my_profile(current_user: User = Depends(get_current_active_user)) -> Any:
     return success_response(current_user)
 
 
+# ==========================================
+# 获取当前用户的详细权限快照 (前端用于鉴权控制按钮显示)
+# ==========================================
 @router.get("/authorization", response_model=ResponseBase[dict])
 async def read_my_authorization(principal: AuthPrincipal = Depends(get_optional_principal)) -> Any:
     snapshot = await build_authorization_snapshot(principal)
     return success_response(snapshot)
 
 
+# ==========================================
+# 修改个人资料 (如修改昵称、头像、简介等)
+# ==========================================
 @router.patch("/profile", response_model=ResponseBase[UserProfileResponse])
 async def update_my_profile(
     profile_in: UserProfileBase,
@@ -53,6 +62,9 @@ async def update_my_profile(
     return success_response(current_user)
 
 
+# ==========================================
+# 修改隐私设置 (如学校信息是否对外公开)
+# ==========================================
 @router.patch("/privacy", response_model=ResponseBase[UserProfileResponse])
 async def update_my_privacy(
     privacy_in: UserPrivacyUpdate,
@@ -72,6 +84,9 @@ async def update_my_privacy(
     return success_response(current_user)
 
 
+# ==========================================
+# 分页获取我的系统通知列表
+# ==========================================
 @router.get("/notifications", response_model=ResponseBase[PaginationData[NotificationResponse]])
 async def read_my_notifications(
     page: int = 1,
@@ -86,12 +101,18 @@ async def read_my_notifications(
     return paginate_response(notifications, page, page_size, total)
 
 
+# ==========================================
+# 获取未读通知的数量 (常用于前端导航栏小红点)
+# ==========================================
 @router.get("/notifications/unread-count", response_model=ResponseBase[NotificationUnreadCountResponse])
 async def read_unread_notification_count(current_user: User = Depends(get_current_active_user)):
     unread_count = await Notification.filter(user_id=current_user.id, is_read=False).count()
     return success_response(NotificationUnreadCountResponse(unread_count=unread_count))
 
 
+# ==========================================
+# 将单条通知标记为已读
+# ==========================================
 @router.patch("/notifications/{notification_id}/read", response_model=ResponseBase[NotificationResponse])
 async def read_notification(
     notification_id: int,
@@ -106,6 +127,9 @@ async def read_notification(
     return success_response(notif)
 
 
+# ==========================================
+# 批量将通知标记为已读
+# ==========================================
 @router.patch("/notifications/read", response_model=ResponseBase[dict])
 async def mark_notifications_as_read(
     payload: NotificationMarkReadRequest,
@@ -127,6 +151,9 @@ async def mark_notifications_as_read_legacy(
     return await mark_notifications_as_read(payload, current_user)
 
 
+# ==========================================
+# 获取我的数据统计 (发帖数、资源数、关注数等)
+# ==========================================
 @router.get("/stats", response_model=ResponseBase[MyStatsResponse])
 async def read_my_stats(current_user: User = Depends(get_current_active_user)):
     joined_spaces_count = await SpaceSubscription.filter(user_id=current_user.id).count()
@@ -146,6 +173,9 @@ async def read_my_stats(current_user: User = Depends(get_current_active_user)):
     ))
 
 
+# ==========================================
+# 获取我发出的所有评论记录
+# ==========================================
 @router.get("/comments", response_model=ResponseBase[PaginationData[MyCommentItemResponse]])
 async def read_my_comments(
     page: int = 1,
@@ -191,6 +221,9 @@ async def read_my_comments(
     return paginate_response(response_items, page, page_size, total)
 
 
+# ==========================================
+# 获取我点赞过的帖子列表
+# ==========================================
 @router.get("/likes", response_model=ResponseBase[PaginationData[PostResponse]])
 async def read_my_likes(
     page: int = 1,

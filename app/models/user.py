@@ -2,11 +2,11 @@ from tortoise import fields, models
 
 from app.models.enums import UserRole, TrustLevel, SchoolVisibility
 
+'''
+用户表 (users)
+核心业务表，存储所有用户的基本信息、权限角色以及偏好设置。
+'''
 class User(models.Model):
-    """
-    用户表 (users)
-    核心业务表，存储所有用户的基本信息、权限角色以及偏好设置。
-    """
     id = fields.IntField(primary_key=True) # 主键 ID
     username = fields.CharField(max_length=50, unique=True, db_index=True) # 登录用户名，唯一且加索引
     email = fields.CharField(max_length=150, unique=True, db_index=True) # 注册邮箱，唯一且加索引

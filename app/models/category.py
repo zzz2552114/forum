@@ -1,10 +1,10 @@
 from tortoise import fields, models
 
+'''
+大分类表 (categories)
+比如：“学校”、“课程”、“爱好”等顶层分类。
+'''
 class Category(models.Model):
-    """
-    大分类表 (categories)
-    比如：“学校”、“课程”、“爱好”等顶层分类。
-    """
     id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=100, unique=True) # 分类名 e.g., 'Schools', 'Courses', 'Hobbies'
     description = fields.TextField(null=True)
@@ -17,11 +17,11 @@ class Category(models.Model):
 
 from app.models.enums import SpaceType, ContentStatus
 
+'''
+具体板块表 (spaces)
+大分类下的具体交流空间。比如“学校”大类下的“北京大学”板块。
+'''
 class Space(models.Model):
-    """
-    具体板块表 (spaces)
-    大分类下的具体交流空间。比如“学校”大类下的“北京大学”板块。
-    """
     id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=100) # 板块名 e.g., 'Peking University', 'Calculus'
     slug = fields.CharField(max_length=100, unique=True, null=True) # URL 友好别名 (如 peking-university)

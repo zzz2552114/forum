@@ -2,11 +2,11 @@ from tortoise import fields, models
 
 from app.models.enums import ContentStatus, PostType
 
+'''
+帖子表 (posts)
+论坛核心表，存储所有的帖子内容。
+'''
 class Post(models.Model):
-    """
-    帖子表 (posts)
-    论坛核心表，存储所有的帖子内容。
-    """
     id = fields.IntField(primary_key=True)
     title = fields.CharField(max_length=255) # 帖子标题
     content = fields.TextField() # 帖子正文内容（可能包含 Markdown/HTML）
@@ -36,11 +36,11 @@ class Post(models.Model):
         table = "posts"
 
 
+'''
+评论表 (comments)
+存储帖子下的所有评论与子回复。
+'''
 class Comment(models.Model):
-    """
-    评论表 (comments)
-    存储帖子下的所有评论与子回复。
-    """
     id = fields.IntField(primary_key=True)
     content = fields.TextField() # 评论内容
     status = fields.CharEnumField(ContentStatus, default=ContentStatus.PUBLISHED)
@@ -61,11 +61,11 @@ class Comment(models.Model):
         table = "comments"
 
 
+'''
+帖子点赞记录表 (post_likes)
+中间表，用于记录谁点赞了哪个帖子，确保一个用户对一个帖子只能点赞一次。
+'''
 class PostLike(models.Model):
-    """ 
-    帖子点赞记录表 (post_likes)
-    中间表，用于记录谁点赞了哪个帖子，确保一个用户对一个帖子只能点赞一次。
-    """
     id = fields.IntField(primary_key=True)
     user = fields.ForeignKeyField("models.User", related_name="post_likes")
     post = fields.ForeignKeyField("models.Post", related_name="liked_by")

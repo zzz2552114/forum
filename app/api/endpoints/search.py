@@ -143,6 +143,9 @@ def _paginate_rows(rows: list[object], page: int, page_size: int) -> tuple[list[
     return rows[offset : offset + page_size], total
 
 
+# ==========================================
+# 全局搜索 - 搜索帖子
+# ==========================================
 @router.get("/posts", response_model=ResponseBase[PaginationData[PostSearchItem]])
 async def search_posts(
     keyword: Optional[str] = Query(default=None, min_length=1),
@@ -215,6 +218,9 @@ async def search_posts(
     return paginate_response(items, page, page_size, total)
 
 
+# ==========================================
+# 全局搜索 - 搜索板块
+# ==========================================
 @router.get("/spaces", response_model=ResponseBase[PaginationData[SpaceSearchItem]])
 async def search_spaces(
     keyword: Optional[str] = Query(default=None, min_length=1),
@@ -268,6 +274,9 @@ async def search_spaces(
     return paginate_response(items, page, page_size, total)
 
 
+# ==========================================
+# 全局搜索 - 搜索学习资源
+# ==========================================
 @router.get("/resources", response_model=ResponseBase[PaginationData[ResourceSearchItem]])
 async def search_resources(
     keyword: Optional[str] = Query(default=None, min_length=1),
@@ -354,6 +363,9 @@ async def search_resources(
     return paginate_response(items, page, page_size, total)
 
 
+# ==========================================
+# 搜索建议 (用户输入时自动下拉联想提示)
+# ==========================================
 @router.get("/suggestions", response_model=ResponseBase[SearchSuggestions])
 async def search_suggestions(
     keyword: Optional[str] = Query(default=None, min_length=1),
