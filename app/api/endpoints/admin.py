@@ -18,7 +18,6 @@ from app.models.interactions import SpaceMaster
 from app.models.user import User
 from app.models.report import Report
 from app.schemas.common import PaginationData, ResponseBase
-from app.schemas.report import ReportResponse, ReportUpdate
 
 router = APIRouter()
 
