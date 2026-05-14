@@ -5,7 +5,7 @@ from app.models.enums import ReviewStatus, TrustLevel
 from app.models.user import User
 from app.api.deps import get_current_user, ensure_min_trust, ensure_admin_or_super_root
 from app.schemas.common import ResponseBase
-from app.schemas.report import ReportCreate, ReportResponse
+from app.schemas.report import ReportCreate, ReportResponse, ReportUpdate
 from app.core.responses import success_response
 
 router = APIRouter()
@@ -52,10 +52,8 @@ async def get_report(report_id: int, current_user: User = Depends(get_current_us
     if report.reporter_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看他人的举报记录")
         
+        
     return success_response(report)
-
-class ReportUpdate(BaseModel):
-    status: ReviewStatus
 
 # ==========================================
 # 管理员处理举报记录（包含处理结果，举报内容，id等，管理员才可以查看）
