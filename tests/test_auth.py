@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 
 from fastapi.testclient import TestClient
 
@@ -82,3 +82,55 @@ def test_invalid_token_handling():
             headers={"Authorization": "Bearer not_a_real_token_123"},
         )
         assert response.status_code == 401
+
+
+def test_student_auth_flow():
+    with TestClient(app) as client:
+        username = f"stu_user_{uuid.uuid4().hex[:8]}"
+
+        # 1. Register
+        client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": username,
+                "email": f"{username}@example.com",
+                "password": "testpassword123",
+            },
+        )
+
+        # 2. Login
+        login_response = client.post(
+            "/api/v1/auth/login",
+            data={"username": username, "password": "testpassword123"},
+        )
+        token_data = login_response.json()
+        headers = {"Authorization": f"Bearer {token_data['access_token']}"}
+
+        # 3. Send auth code
+        send_response = client.post(
+            "/api/v1/auth/stu-auth/send",
+            json={"email": "student@test.edu.cn", "school_name": "Test University"},
+            headers=headers
+        )
+        assert send_response.status_code == 200
+        send_data = send_response.json()
+        assert send_data["success"] is True
+        assert "code" in send_data
+
+        code = send_data["code"]
+
+        # 4. Verify auth code
+        verify_response = client.post(
+            "/api/v1/auth/stu-auth/verify",
+            json={"code": code},
+            headers=headers
+        )
+        assert verify_response.status_code == 200
+        verify_data = verify_response.json()
+        assert verify_data["success"] is True
+
+        # 5. Check trust level is upgraded
+        authz = client.get("/api/v1/me/authorization", headers=headers)
+        snapshot = authz.json()["data"]
+        # Assuming VERIFIED trust level is 2
+        assert snapshot["trust_level"] == 2

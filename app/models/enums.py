@@ -43,3 +43,9 @@ class SchoolVisibility(str, Enum):
     PUBLIC = "public"
     MEMBERS_ONLY = "members_only"
     HIDDEN = "hidden"
+
+
+class ReviewStatus(str, Enum):
+    PENDING = "pending"
+    REVIEWED = "reviewed"
+    DISMISSED = "dismissed"

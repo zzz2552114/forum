@@ -1,10 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from loguru import logger
 from tortoise import Tortoise
 
 from app.models.enums import TrustLevel, UserRole
 from app.models.user import User
+from app.core.config import settings
+from app.core.security import get_password_hash
 
 
 async def migrate_user_roles_and_trust() -> None:
@@ -46,3 +48,24 @@ async def migrate_user_roles_and_trust() -> None:
             high_trust_fixed,
             guest_users_promoted,
         )
+
+async def init_super_root() -> None:
+    """Initialize super root user if it doesn't exist."""
+    super_root = await User.get_or_none(role=UserRole.SUPER_ROOT)
+    if not super_root:
+        existing_user = await User.get_or_none(username=settings.SUPER_ROOT_USERNAME)
+        if existing_user:
+            existing_user.role = UserRole.SUPER_ROOT
+            existing_user.trust_level = TrustLevel.CONTRIBUTOR
+            await existing_user.save(update_fields=["role", "trust_level"])
+            logger.info("Existing user promoted to super root.")
+            return
+
+        await User.create(
+            username=settings.SUPER_ROOT_USERNAME,
+            email=settings.SUPER_ROOT_EMAIL,
+            hashed_password=get_password_hash(settings.SUPER_ROOT_PASSWORD),
+            role=UserRole.SUPER_ROOT,
+            trust_level=TrustLevel.CONTRIBUTOR,
+        )
+        logger.info(f"Super root user created with username: {settings.SUPER_ROOT_USERNAME}")
