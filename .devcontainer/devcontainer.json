@@ -1,0 +1,40 @@
+{
+  "name": "Forum Fullstack App",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "installTools": true,
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "forwardPorts": [8000, 5173],
+  "portsAttributes": {
+    "8000": {
+      "label": "FastAPI Backend",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Vue3 Frontend",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": [
+    "pip install -r requirements.txt",
+    "cd frontend && npm install",
+    "mysql -u root -p'123456' -e 'CREATE DATABASE IF NOT EXISTS forum'"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "Vue.volar",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}

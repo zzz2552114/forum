@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any
 
@@ -9,12 +9,14 @@ from app.api.deps import (
     ensure_admin_or_super_root,
     get_current_active_user,
     raise_forbidden,
+    get_current_user,
 )
 from app.core.responses import paginate_response, success_response
 from app.models.category import Space
-from app.models.enums import TrustLevel, UserRole
+from app.models.enums import TrustLevel, UserRole, ReviewStatus
 from app.models.interactions import SpaceMaster
 from app.models.user import User
+from app.models.report import Report
 from app.schemas.common import PaginationData, ResponseBase
 
 router = APIRouter()
@@ -43,6 +45,9 @@ class SpaceMasterItem(BaseModel):
     assigned_at: Any
 
 
+# ==========================================
+# [管理员] 分页获取全站用户列表
+# ==========================================
 @router.get("/users", response_model=ResponseBase[PaginationData[UserAdminItem]])
 async def list_users(
     page: int = 1,
@@ -70,6 +75,9 @@ async def list_users(
     return paginate_response(items, page, page_size, total)
 
 
+# ==========================================
+# [管理员] 修改用户的系统角色 (如设为普通用户或管理员)
+# ==========================================
 @router.patch("/users/{user_id}/role", response_model=ResponseBase[dict])
 async def update_user_role(
     user_id: int,
@@ -99,6 +107,9 @@ async def update_user_role(
     return success_response({"id": target.id, "role": target.role})
 
 
+# ==========================================
+# [管理员] 修改用户的信任等级
+# ==========================================
 @router.patch("/users/{user_id}/trust-level", response_model=ResponseBase[dict])
 async def update_user_trust_level(
     user_id: int,
@@ -122,6 +133,9 @@ async def update_user_trust_level(
     return success_response({"id": target.id, "trust_level": int(target.trust_level)})
 
 
+# ==========================================
+# [管理员] 获取某个板块的所有版主列表
+# ==========================================
 @router.get("/spaces/{space_id}/masters", response_model=ResponseBase[list[SpaceMasterItem]])
 async def list_space_masters(
     space_id: int,
@@ -145,6 +159,9 @@ async def list_space_masters(
     return success_response(data)
 
 
+# ==========================================
+# [管理员] 指定某用户成为板块的版主
+# ==========================================
 @router.put("/spaces/{space_id}/masters/{user_id}", response_model=ResponseBase[dict])
 async def assign_space_master(
     space_id: int,
@@ -165,6 +182,9 @@ async def assign_space_master(
     return success_response({"space_id": space_id, "user_id": user_id, "created": created})
 
 
+# ==========================================
+# [管理员] 撤销某用户的板块版主身份
+# ==========================================
 @router.delete("/spaces/{space_id}/masters/{user_id}", response_model=ResponseBase[dict])
 async def remove_space_master(
     space_id: int,
@@ -175,3 +195,5 @@ async def remove_space_master(
 
     deleted = await SpaceMaster.filter(space_id=space_id, user_id=user_id).delete()
     return success_response({"space_id": space_id, "user_id": user_id, "deleted": bool(deleted)})
+
+

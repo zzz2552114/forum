@@ -1,4 +1,4 @@
-﻿from typing import Any
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -12,6 +12,9 @@ from app.schemas.profile import UserPublicProfileResponse
 router = APIRouter()
 
 
+# ==========================================
+# 获取公开的用户资料 (包含隐私策略控制)
+# ==========================================
 @router.get("/{user_id}", response_model=ResponseBase[UserPublicProfileResponse])
 async def read_user_profile(
     user_id: int,

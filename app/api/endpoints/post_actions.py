@@ -1,4 +1,4 @@
-﻿from typing import Any
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from tortoise.expressions import F
@@ -18,6 +18,9 @@ from app.notifications import create_notification
 router = APIRouter()
 
 
+# ==========================================
+# 收藏帖子
+# ==========================================
 @router.put("/{post_id}/bookmarks/me")
 async def bookmark_post(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     ensure_min_trust(
@@ -50,6 +53,9 @@ async def bookmark_post(post_id: int, current_user: User = Depends(get_current_a
     return success_response({"bookmarked": True, "created": created})
 
 
+# ==========================================
+# 取消收藏帖子
+# ==========================================
 @router.delete("/{post_id}/bookmarks/me")
 async def remove_bookmark(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     ensure_min_trust(
@@ -64,6 +70,9 @@ async def remove_bookmark(post_id: int, current_user: User = Depends(get_current
     return success_response({"message": "Bookmark removed"})
 
 
+# ==========================================
+# 点赞帖子
+# ==========================================
 @router.put("/{post_id}/likes/me")
 async def like_post(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     ensure_min_trust(
@@ -96,6 +105,9 @@ async def like_post(post_id: int, current_user: User = Depends(get_current_activ
     return success_response({"liked": True, "created": created})
 
 
+# ==========================================
+# 取消点赞帖子
+# ==========================================
 @router.delete("/{post_id}/likes/me")
 async def unlike_post(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     ensure_min_trust(
@@ -110,6 +122,9 @@ async def unlike_post(post_id: int, current_user: User = Depends(get_current_act
     return success_response({"message": "Like removed"})
 
 
+# ==========================================
+# 订阅帖子 (收到该帖子的更新通知)
+# ==========================================
 @router.put("/{post_id}/subscriptions/me")
 async def subscribe_post(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     ensure_min_trust(
@@ -126,6 +141,9 @@ async def subscribe_post(post_id: int, current_user: User = Depends(get_current_
     return success_response({"subscribed": True, "created": created})
 
 
+# ==========================================
+# 取消订阅帖子
+# ==========================================
 @router.delete("/{post_id}/subscriptions/me")
 async def unsubscribe_post(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     ensure_min_trust(
@@ -146,6 +164,9 @@ async def _verify_post_moderation_scope(user: User, post: Post) -> None:
     )
 
 
+# ==========================================
+# 置顶帖子 (需要版主或管理员权限)
+# ==========================================
 @router.put("/{post_id}/pin")
 async def pin_post(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     post = await Post.get_or_none(id=post_id)
@@ -159,6 +180,9 @@ async def pin_post(post_id: int, current_user: User = Depends(get_current_active
     return success_response({"message": "Post pinned"})
 
 
+# ==========================================
+# 取消置顶帖子
+# ==========================================
 @router.delete("/{post_id}/pin")
 async def unpin_post(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     post = await Post.get_or_none(id=post_id)
@@ -172,6 +196,9 @@ async def unpin_post(post_id: int, current_user: User = Depends(get_current_acti
     return success_response({"message": "Post unpinned"})
 
 
+# ==========================================
+# 锁定帖子 (禁止新评论，需要版主或管理员权限)
+# ==========================================
 @router.put("/{post_id}/lock")
 async def lock_post(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     post = await Post.get_or_none(id=post_id)
@@ -185,6 +212,9 @@ async def lock_post(post_id: int, current_user: User = Depends(get_current_activ
     return success_response({"message": "Post locked"})
 
 
+# ==========================================
+# 解锁帖子
+# ==========================================
 @router.delete("/{post_id}/lock")
 async def unlock_post(post_id: int, current_user: User = Depends(get_current_active_user)) -> Any:
     post = await Post.get_or_none(id=post_id)

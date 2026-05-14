@@ -1,5 +1,9 @@
 from tortoise import fields, models
 
+'''
+消息通知表 (notifications)
+存储系统的各类通知（如有人回复、点赞、系统通告等）。
+'''
 class Notification(models.Model):
     id = fields.IntField(primary_key=True)
     user = fields.ForeignKeyField("models.User", related_name="notifications")
