@@ -15,6 +15,7 @@ from app.api.endpoints import (
     spaces,
     tags,
     users,
+    reports,
 )
 
 api_router = APIRouter()
@@ -32,3 +33,4 @@ api_router.include_router(tags.router, prefix="/tags", tags=["tags"])
 api_router.include_router(files.router, prefix="/files", tags=["files"])
 api_router.include_router(resources.router, prefix="/resources", tags=["resources"])
 api_router.include_router(ai_mention_router, prefix="/ai-mention", tags=["ai mention"])
+api_router.include_router(reports.router, prefix="/reports", tags=["report malicious posts"])
