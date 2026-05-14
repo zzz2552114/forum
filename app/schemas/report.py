@@ -1,21 +1,24 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from app.models.enums import ReviewStatus
 
 class ReportCreate(BaseModel):
-    # 举报内容，必须填
     reason: str
-    # 举报的帖子或者评论，二选一
     post_id: Optional[int] = None
     comment_id: Optional[int] = None
+
+class ReportUpdate(BaseModel):
+    status: ReviewStatus
 
 class ReportResponse(BaseModel):
     id: int
     reporter_id: int
+    post_id: Optional[int] = None
+    comment_id: Optional[int] = None
     reason: str
     status: str
-    post_id: Optional[int]
-    comment_id: Optional[int]
     created_at: datetime
-    
-    model_config = ConfigDict(from_attributes=True)
+
+    class Config:
+        from_attributes = True

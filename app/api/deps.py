@@ -26,14 +26,10 @@ PERMISSION_AUTH_LOGIN = "auth.login"
 
 @dataclass(slots=True)
 class AuthPrincipal:
-    """
-    身份上下文数据类
-    用于在各个请求中传递当前访问者的核心信息。
-    """
-    kind: Literal["guest", "user"] # 访问者类型：游客或已登录用户
-    user: User | None # 如果是用户，则包含数据库查询出的 User 对象
-    role: str # 系统角色（如 guest, user, admin）
-    trust_level: TrustLevel # 信任等级
+    kind: Literal["guest", "user"]
+    user: User | None
+    role: str
+    trust_level: TrustLevel
 
 
 def _build_credentials_exception() -> HTTPException:
@@ -91,11 +87,6 @@ async def _decode_user_from_token(token: str) -> User:
 
 
 async def get_optional_principal(token: str | None = Depends(oauth2_optional_scheme)) -> AuthPrincipal:
-    """
-    【可选鉴权】尝试获取当前用户上下文，不强制要求登录。
-    如果请求没有带 Token，会返回游客上下文（guest）；如果带了，则解析用户信息。
-    常用于“游客和用户都能看，但用户能看到更多数据”的接口。
-    """
     token_value = (token or "").strip()
     if not token_value:
         return AuthPrincipal(
@@ -137,11 +128,6 @@ async def get_current_user(principal: AuthPrincipal = Depends(get_principal)) ->
 
 
 async def get_current_active_user(principal: AuthPrincipal = Depends(get_optional_principal)) -> User:
-    """
-    【强制鉴权】获取当前登录且账号活跃的用户。
-    最常用的依赖：如果你写的接口必须登录才能访问，加上这个 Depends。
-    如果没登录，直接拦截并返回 401/403 错误。
-    """
     if principal.user is None:
         raise_forbidden(
             required_permission=PERMISSION_AUTH_LOGIN,
@@ -152,10 +138,6 @@ async def get_current_active_user(principal: AuthPrincipal = Depends(get_optiona
 
 
 def require_role(roles: Sequence[UserRole | str], required_permission: str):
-    """
-    【角色校验工厂】生成一个要求特定角色的依赖函数。
-    用法示例: Depends(require_role([UserRole.ADMIN], "admin.manage"))
-    """
     role_values = {role.value if isinstance(role, UserRole) else str(role) for role in roles}
 
     async def role_checker(current_user: User = Depends(get_current_active_user)) -> User:
@@ -181,10 +163,6 @@ def ensure_min_trust(user: User, *, min_level: TrustLevel, required_permission: 
 
 
 def require_min_trust(min_level: TrustLevel, required_permission: str):
-    """
-    【信任等级校验工厂】要求用户的信任等级必须达到 min_level 才能放行。
-    用于防止新手灌水（比如 TrustLevel.BASIC 才能发帖）。
-    """
     async def trust_checker(current_user: User = Depends(get_current_active_user)) -> User:
         ensure_min_trust(
             current_user,
@@ -225,10 +203,7 @@ async def ensure_space_master_or_admin(
 
 
 async def ensure_space_subscription(user: User, space_id: int) -> None:
-    """
-    【板块订阅检查】确保用户已经订阅（加入）了特定的板块。
-    如果是全局管理员或该板块版主，则自动跳过检查。
-    """
+    """Ensure the user has subscribed to the space, or is a space master/admin."""
     if is_platform_admin(user):
         return
 
@@ -267,12 +242,6 @@ KNOWN_PERMISSIONS: set[str] = {
 
 
 async def build_authorization_snapshot(principal: AuthPrincipal) -> dict[str, Any]:
-    """
-    【生成前端权限快照】
-    根据登录用户的 角色、信任等级 以及 担任版主的情况，
-    动态计算出该用户拥有哪些细粒度的权限标志（如 `post.create`）。
-    这个字典通常返回给前端 Vue，用于控制按钮的显示/隐藏（类似前端鉴权路由/指令）。
-    """
     if principal.kind == "guest" or principal.user is None:
         return {
             "auth_state": "guest",

@@ -23,7 +23,7 @@ def init_db(app: FastAPI) -> None:
                         "app.models.tag",
                         "app.models.file",
                         "app.models.notification",
-                        "app.models.authentication"
+                        "app.models.authentication",
                     ],
                     "default_connection": "default",
                 }

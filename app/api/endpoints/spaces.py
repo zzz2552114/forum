@@ -14,9 +14,6 @@ from app.schemas.common import ResponseBase
 router = APIRouter()
 
 
-# ==========================================
-# 获取所有板块列表 (可按大分类筛选)
-# ==========================================
 @router.get("/", response_model=ResponseBase[List[SpaceResponse]])
 async def read_spaces(category_id: int | None = None):
     if category_id:
@@ -24,9 +21,6 @@ async def read_spaces(category_id: int | None = None):
     return success_response(await Space.all())
 
 
-# ==========================================
-# 创建新板块
-# ==========================================
 @router.post("/", response_model=ResponseBase[SpaceResponse])
 async def create_space(
     space_in: SpaceCreate,
@@ -53,9 +47,6 @@ async def create_space(
     return success_response(space)
 
 
-# ==========================================
-# 获取单个板块详情
-# ==========================================
 @router.get("/{space_id}", response_model=ResponseBase[SpaceResponse])
 async def read_space_by_id(space_id: int):
     space = await Space.get_or_none(id=space_id)
@@ -75,9 +66,6 @@ async def read_space_by_id(space_id: int):
     )
 
 
-# ==========================================
-# 加入(订阅)板块
-# ==========================================
 @router.put("/{space_id}/subscriptions/me")
 async def subscribe_space(
     space_id: int,
@@ -101,9 +89,6 @@ async def subscribe_space(
     return success_response({"subscribed": True, "created": created})
 
 
-# ==========================================
-# 退出(取消订阅)板块
-# ==========================================
 @router.delete("/{space_id}/subscriptions/me")
 async def unsubscribe_space(
     space_id: int,
@@ -123,9 +108,6 @@ async def unsubscribe_space(
     return success_response({"message": "Subscription removed"})
 
 
-# ==========================================
-# 获取当前用户加入的所有板块
-# ==========================================
 @router.get("/me/subscriptions", response_model=ResponseBase[List[SpaceResponse]])
 async def get_my_subscriptions(
     current_user: User = Depends(get_current_active_user),

@@ -26,9 +26,6 @@ os.makedirs(GENERAL_DIR, exist_ok=True)
 # Ensure upload directory exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# ==========================================
-# 上传文件 (依赖当前用户的信任等级)
-# ==========================================
 @router.post("/", response_model=ResponseBase[FileResponse])
 async def upload_file(
     file: UploadFile = FastAPIFile(...),
@@ -151,9 +148,6 @@ async def read_file(file_id: int):
         raise HTTPException(status_code=404, detail="File not found")
     return success_response(db_file)
 
-# ==========================================
-# 删除文件 (只能删除自己的，或者管理员删除任何文件)
-# ==========================================
 @router.delete("/{file_id}")
 async def delete_file(file_id: int, current_user: User = Depends(get_current_active_user)):
     db_file = await File.get_or_none(id=file_id).prefetch_related("uploader")

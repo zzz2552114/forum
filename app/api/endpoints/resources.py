@@ -12,9 +12,6 @@ from app.models.user import User
 router = APIRouter()
 from app.models.enums import ContentStatus
 
-# ==========================================
-# 分页获取学习资源列表
-# ==========================================
 @router.get("/", response_model=ResponseBase[PaginationData[ResourceResponse]])
 async def read_resources(
     space_id: Optional[int] = None, 
@@ -62,9 +59,6 @@ async def read_resources(
         
     return paginate_response(response_items, page, page_size, total)
 
-# ==========================================
-# 创建(上传)一个新的学习资源
-# ==========================================
 @router.post("/", response_model=ResponseBase[ResourceResponse])
 async def create_resource(resource_in: ResourceCreate, current_user: User = Depends(get_current_active_user)):
     space = await Space.get_or_none(id=resource_in.space_id)
@@ -111,9 +105,6 @@ async def create_resource(resource_in: ResourceCreate, current_user: User = Depe
         versions=[ResourceVersionResponse.model_validate(version)]
     ))
 
-# ==========================================
-# 获取单个学习资源的详情
-# ==========================================
 @router.get("/{resource_id}", response_model=ResponseBase[ResourceResponse])
 async def read_resource(resource_id: int):
     resource = await Resource.get_or_none(id=resource_id).prefetch_related("uploader", "space", "versions")
@@ -139,9 +130,6 @@ async def read_resource(resource_id: int):
 from fastapi.responses import FileResponse
 import os
 
-# ==========================================
-# 收藏学习资源
-# ==========================================
 @router.post("/{resource_id}/bookmark")
 async def bookmark_resource(resource_id: int, current_user: User = Depends(get_current_active_user)):
     from app.models.interactions import ResourceBookmark
@@ -161,9 +149,6 @@ async def bookmark_resource(resource_id: int, current_user: User = Depends(get_c
     
     return success_response({"message": "Resource bookmarked successfully", "bookmarked": True})
 
-# ==========================================
-# 下载学习资料 (校验下载Token)
-# ==========================================
 @router.get("/{resource_id}/download")
 async def download_resource(resource_id: int, token: str = Query(...)):
     """Download a resource file. Accepts token as query parameter for browser-native download."""
