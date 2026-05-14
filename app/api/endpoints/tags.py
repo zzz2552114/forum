@@ -10,9 +10,6 @@ from app.models.enums import UserRole
 
 router = APIRouter()
 
-# ==========================================
-# 分页获取所有标签 (支持按关键字检索)
-# ==========================================
 @router.get("/", response_model=ResponseBase[PaginationData[TagResponse]])
 async def read_tags(keyword: Optional[str] = None, page: int = 1, page_size: int = 20):
     query = Tag.all()
@@ -25,9 +22,6 @@ async def read_tags(keyword: Optional[str] = None, page: int = 1, page_size: int
     
     return paginate_response(tags, page, page_size, total)
 
-# ==========================================
-# [管理员] 创建新标签
-# ==========================================
 @router.post("/", response_model=ResponseBase[TagResponse])
 async def create_tag(tag_in: TagCreate, current_user: User = Depends(get_current_active_user)):
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ROOT]:
@@ -40,9 +34,6 @@ async def create_tag(tag_in: TagCreate, current_user: User = Depends(get_current
     tag = await Tag.create(**tag_in.model_dump())
     return success_response(tag)
 
-# ==========================================
-# [管理员] 更新标签名称
-# ==========================================
 @router.patch("/{tag_id}", response_model=ResponseBase[TagResponse])
 async def update_tag(tag_id: int, tag_in: TagCreate, current_user: User = Depends(get_current_active_user)):
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ROOT]:
@@ -58,9 +49,6 @@ async def update_tag(tag_id: int, tag_in: TagCreate, current_user: User = Depend
     await tag.save()
     return success_response(tag)
 
-# ==========================================
-# [管理员] 删除标签
-# ==========================================
 @router.delete("/{tag_id}")
 async def delete_tag(tag_id: int, current_user: User = Depends(get_current_active_user)):
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ROOT]:

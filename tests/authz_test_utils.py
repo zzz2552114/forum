@@ -87,7 +87,7 @@ def create_category_and_space(
         json={"name": f"{category_name} {suffix}"},
         headers=headers,
     )
-    assert category.status_code == 200, f"Expected 200, got {category.status_code}: {category.json()}"
+    assert category.status_code == 200
     category_id = category.json()["data"]["id"]
 
     space = client.post(
@@ -95,6 +95,5 @@ def create_category_and_space(
         json={"name": f"{space_name} {suffix}", "category_id": category_id},
         headers=headers,
     )
-    assert space.status_code == 200, f"Expected 200, got {space.status_code}: {space.json()}"
-    
+    assert space.status_code == 200
     return category_id, space.json()["data"]["id"]
