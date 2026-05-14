@@ -16,7 +16,7 @@ router = APIRouter()
 @router.post("/", response_model=ResponseBase[ReportResponse])
 async def create_report(report_in: ReportCreate, current_user: User = Depends(get_current_user)):
     """
-    这个函数是用来发送举报请求的
+    这个函数是用来发送举报请求的,只有登录用户可以举报
     """
     ensure_min_trust(
         current_user, 
@@ -43,7 +43,7 @@ async def create_report(report_in: ReportCreate, current_user: User = Depends(ge
 @router.get("/{report_id}", response_model=ResponseBase[ReportResponse])
 async def get_report(report_id: int, current_user: User = Depends(get_current_user)):
     """
-    这个函数是用来获取特定用户的举报记录的
+    这个函数是用来获取特定用户的举报记录的，只有登录用户会正确返回结果
     """
     report = await Report.get_or_none(id=report_id)
     if not report:

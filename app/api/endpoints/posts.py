@@ -64,6 +64,9 @@ async def read_posts(
 # ==========================================
 @router.get("/trending", response_model=ResponseBase[PaginationData[PostResponse]])
 async def read_trending_posts(page: int = 1, page_size: int = 20):
+    """
+    此函数用于获取全站热榜
+    """
     query = Post.filter(status=ContentStatus.PUBLISHED).order_by("-hot_score")
     
     total = await query.count()

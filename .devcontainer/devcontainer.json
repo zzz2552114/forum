@@ -10,7 +10,10 @@
       "version": "20"
     }
   },
-  "forwardPorts": [8000, 5173],
+  "forwardPorts": [
+    8000,
+    5173
+  ],
   "portsAttributes": {
     "8000": {
       "label": "FastAPI Backend",
@@ -21,7 +24,11 @@
       "onAutoForward": "notify"
     }
   },
-  "postCreateCommand": "pip install -r requirements.txt && cd frontend && npm install",
+  "postCreateCommand": [
+    "pip install -r requirements.txt",
+    "cd frontend && npm install",
+    "mysql -u root -p'123456' -e 'CREATE DATABASE IF NOT EXISTS forum'"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [

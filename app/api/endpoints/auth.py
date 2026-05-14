@@ -82,7 +82,7 @@ async def send_stu_auth(
         return {"success": False, "message": "请输入有效的教育邮箱 (.edu 或 .edu.cn)"}
 
     # 冷却时间限制
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)
     
     last_record = await MailAuth.filter(
         user=current_user, 
@@ -125,7 +125,8 @@ async def verify_stu_auth(
     """
     此函数用来校验验证码,用户输入的验证码应该发送到这个url做校验
     """
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)
+    
     
     # 查找该用户最新的一条未使用验证码
     auth_record = await MailAuth.filter(
