@@ -66,3 +66,4 @@ watchfiles==1.1.1
 websockets==16.0
 win32_setctime==1.2.0
 aiofiles==24.1.0
+Pillow==10.3.0
