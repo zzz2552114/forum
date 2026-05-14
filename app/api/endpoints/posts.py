@@ -60,6 +60,37 @@ async def read_posts(
     return paginate_response(response_posts, page, page_size, total)
 
 # ==========================================
+# 获取全站热榜 (按 hot_score 倒序)
+# ==========================================
+@router.get("/trending", response_model=ResponseBase[PaginationData[PostResponse]])
+async def read_trending_posts(page: int = 1, page_size: int = 20):
+    query = Post.filter(status=ContentStatus.PUBLISHED).order_by("-hot_score")
+    
+    total = await query.count()
+    skip = (page - 1) * page_size
+    posts = await query.offset(skip).limit(page_size).prefetch_related("author", "space", "tags")
+    
+    response_posts = []
+    for p in posts:
+        response_posts.append(PostResponse(
+            id=p.id,
+            title=p.title,
+            content=p.content,
+            space_id=p.space.id,
+            author_id=p.author.id,
+            author={"id": p.author.id, "username": p.author.username, "nickname": p.author.nickname, "avatar_url": p.author.avatar_url} if p.author else None,
+            space={"id": p.space.id, "name": p.space.name} if p.space else None,
+            view_count=p.view_count,
+            like_count=p.like_count,
+            comment_count=p.comment_count,
+            bookmark_count=p.bookmark_count,
+            created_at=p.created_at,
+            updated_at=p.updated_at,
+            tags=list(p.tags) if hasattr(p, "tags") else []
+        ))
+    return paginate_response(response_posts, page, page_size, total)
+
+# ==========================================
 # 发布新帖子
 # ==========================================
 @router.post("/", response_model=ResponseBase[PostResponse])

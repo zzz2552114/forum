@@ -17,6 +17,7 @@ from app.models.user import User
 from app.notifications import create_notification
 from app.schemas.common import PaginationData, ResponseBase
 from app.schemas.forum import CommentAuthorSummary, CommentContextResponse, CommentCreate, CommentResponse
+from app.core.trending import update_post_hot_score
 
 router = APIRouter()
 
@@ -139,6 +140,12 @@ async def create_comment(comment_in: CommentCreate, current_user: User = Depends
         updated_at=datetime.now(UTC),
         comment_count=F("comment_count") + 1,
     )
+    
+    # --- Event Hook: 评论数增加，重新计算热门分数 ---
+    updated_post = await Post.get(id=post.id)
+    update_post_hot_score(updated_post)
+    await updated_post.save(update_fields=["hot_score"])
+    # ---------------------------------------------
 
     if parent:
         await Comment.filter(id=parent.id).update(reply_count=F("reply_count") + 1)

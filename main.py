@@ -26,9 +26,18 @@ from contextlib import asynccontextmanager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.db.migrations import init_super_root
+    from app.core.trending import sync_all_hot_scores_task
+    import asyncio
+    
     await migrate_user_roles_and_trust()
     await init_super_root()
+    
+    # --- 启动后台守护任务 ---
+    trending_task = asyncio.create_task(sync_all_hot_scores_task())
+    
     yield
+    
+    trending_task.cancel()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

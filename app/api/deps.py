@@ -262,6 +262,8 @@ KNOWN_PERMISSIONS: set[str] = {
     "user.role.manage",
     "user.trust.manage",
     "user.hidden_school.view",
+    "report.create",
+    "report.manage",
 }
 
 
