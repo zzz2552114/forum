@@ -1,9 +1,5 @@
 from tortoise import fields, models
 
-'''
-文件表 (files)
-存储用户上传的文件记录（包括图片、附件、资源文档等）。
-'''
 class File(models.Model):
     id = fields.IntField(primary_key=True)
     filename = fields.CharField(max_length=255)

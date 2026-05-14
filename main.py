@@ -25,9 +25,7 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.db.migrations import init_super_root
     await migrate_user_roles_and_trust()
-    await init_super_root()
     yield
 
 app = FastAPI(

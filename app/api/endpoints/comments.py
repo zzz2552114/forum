@@ -49,9 +49,6 @@ def _serialize_comment(comment: Comment) -> CommentResponse:
     )
 
 
-# ==========================================
-# 分页获取某个帖子下的所有评论
-# ==========================================
 @router.get("/post/{post_id}", response_model=ResponseBase[PaginationData[CommentResponse]])
 async def read_comments_for_post(post_id: int, page: int = 1, page_size: int = 50):
     post = await Post.get_or_none(id=post_id)
@@ -67,9 +64,6 @@ async def read_comments_for_post(post_id: int, page: int = 1, page_size: int = 5
     return paginate_response(response_comments, page, page_size, total)
 
 
-# ==========================================
-# 获取某条评论的上下文信息（所属帖子和板块）
-# ==========================================
 @router.get("/{comment_id}/context", response_model=ResponseBase[CommentContextResponse])
 async def read_comment_context(comment_id: int):
     comment = await Comment.get_or_none(id=comment_id)
@@ -90,9 +84,6 @@ async def read_comment_context(comment_id: int):
     )
 
 
-# ==========================================
-# 发布新评论 (支持@AI及回复他人评论)
-# ==========================================
 @router.post("/", response_model=ResponseBase[CommentResponse])
 async def create_comment(comment_in: CommentCreate, current_user: User = Depends(get_current_active_user)):
     ensure_min_trust(
