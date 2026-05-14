@@ -14,6 +14,7 @@ from app.models.forum import Post, PostLike
 from app.models.interactions import PostBookmark, PostSubscription
 from app.models.user import User
 from app.notifications import create_notification
+from app.core.trending import update_post_hot_score
 
 router = APIRouter()
 
@@ -33,6 +34,13 @@ async def bookmark_post(post_id: int, current_user: User = Depends(get_current_a
     _, created = await PostBookmark.get_or_create(user_id=current_user.id, post_id=post_id)
     if created:
         await Post.filter(id=post.id).update(bookmark_count=F("bookmark_count") + 1)
+        
+        # --- Event Hook: 收藏数增加，重新计算热门分数 ---
+        updated_post = await Post.get(id=post.id)
+        update_post_hot_score(updated_post)
+        await updated_post.save(update_fields=["hot_score"])
+        # ---------------------------------------------
+        
         if post.author_id != current_user.id:
             await create_notification(
                 user_id=post.author_id,
@@ -79,6 +87,13 @@ async def like_post(post_id: int, current_user: User = Depends(get_current_activ
     _, created = await PostLike.get_or_create(user_id=current_user.id, post_id=post_id)
     if created:
         await Post.filter(id=post.id).update(like_count=F("like_count") + 1)
+        
+        # --- Event Hook: 点赞数增加，重新计算热门分数 ---
+        updated_post = await Post.get(id=post.id)
+        update_post_hot_score(updated_post)
+        await updated_post.save(update_fields=["hot_score"])
+        # ---------------------------------------------
+        
         if post.author_id != current_user.id:
             await create_notification(
                 user_id=post.author_id,

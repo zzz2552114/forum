@@ -47,7 +47,7 @@ def raise_forbidden(
     reason: str = "Operation not permitted",
 ) -> None:
     payload: dict[str, Any] = {
-        "code": 40301,
+        "code": 403,
         "message": "forbidden",
         "data": {
             "reason": reason,
@@ -237,6 +237,7 @@ KNOWN_PERMISSIONS: set[str] = {
     "user.role.manage",
     "user.trust.manage",
     "user.hidden_school.view",
+    "report.manage",
 }
 
 

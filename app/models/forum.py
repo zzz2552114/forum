@@ -21,6 +21,7 @@ class Post(models.Model):
     like_count = fields.IntField(default=0)
     comment_count = fields.IntField(default=0)
     bookmark_count = fields.IntField(default=0)
+    hot_score = fields.FloatField(default=0.0) # 热门分数，用于排序
     
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)

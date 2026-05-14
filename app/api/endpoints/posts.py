@@ -12,6 +12,9 @@ router = APIRouter()
 
 from app.models.enums import ContentStatus
 
+# ==========================================
+# 分页获取帖子列表 (支持按板块、标签、作者等过滤)
+# ==========================================
 @router.get("/", response_model=ResponseBase[PaginationData[PostResponse]])
 async def read_posts(
     space_id: Optional[int] = None, 
@@ -56,6 +59,43 @@ async def read_posts(
         ))
     return paginate_response(response_posts, page, page_size, total)
 
+# ==========================================
+# 获取全站热榜 (按 hot_score 倒序)
+# ==========================================
+@router.get("/trending", response_model=ResponseBase[PaginationData[PostResponse]])
+async def read_trending_posts(page: int = 1, page_size: int = 20):
+    """
+    此函数用于获取全站热榜
+    """
+    query = Post.filter(status=ContentStatus.PUBLISHED).order_by("-hot_score")
+    
+    total = await query.count()
+    skip = (page - 1) * page_size
+    posts = await query.offset(skip).limit(page_size).prefetch_related("author", "space", "tags")
+    
+    response_posts = []
+    for p in posts:
+        response_posts.append(PostResponse(
+            id=p.id,
+            title=p.title,
+            content=p.content,
+            space_id=p.space.id,
+            author_id=p.author.id,
+            author={"id": p.author.id, "username": p.author.username, "nickname": p.author.nickname, "avatar_url": p.author.avatar_url} if p.author else None,
+            space={"id": p.space.id, "name": p.space.name} if p.space else None,
+            view_count=p.view_count,
+            like_count=p.like_count,
+            comment_count=p.comment_count,
+            bookmark_count=p.bookmark_count,
+            created_at=p.created_at,
+            updated_at=p.updated_at,
+            tags=list(p.tags) if hasattr(p, "tags") else []
+        ))
+    return paginate_response(response_posts, page, page_size, total)
+
+# ==========================================
+# 发布新帖子
+# ==========================================
 @router.post("/", response_model=ResponseBase[PostResponse])
 async def create_post(post_in: PostCreate, current_user: User = Depends(get_current_active_user)):
     space = await Space.get_or_none(id=post_in.space_id)
@@ -105,6 +145,9 @@ async def create_post(post_in: PostCreate, current_user: User = Depends(get_curr
         tags=list(post.tags) if hasattr(post, "tags") else []
     ))
 
+# ==========================================
+# 获取单个帖子的详细内容 (并增加浏览量)
+# ==========================================
 @router.get("/{post_id}", response_model=ResponseBase[PostResponse])
 async def read_post(post_id: int):
     post = await Post.get_or_none(id=post_id).prefetch_related("author", "space", "tags")
@@ -134,6 +177,9 @@ async def read_post(post_id: int):
         tags=list(post.tags) if hasattr(post, "tags") else []
     ))
 
+# ==========================================
+# 点赞帖子 (快捷接口，实际调用后端的 post_actions)
+# ==========================================
 @router.post("/{post_id}/like")
 async def like_post(post_id: int, current_user: User = Depends(get_current_active_user)):
     post = await Post.get_or_none(id=post_id)
@@ -149,6 +195,9 @@ async def like_post(post_id: int, current_user: User = Depends(get_current_activ
     
     return success_response({"message": "Post liked successfully"})
 
+# ==========================================
+# 收藏帖子 (快捷接口，实际调用后端的 post_actions)
+# ==========================================
 @router.post("/{post_id}/bookmark")
 async def bookmark_post(post_id: int, current_user: User = Depends(get_current_active_user)):
     from app.models.interactions import PostBookmark
