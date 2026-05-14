@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from loguru import logger
 from tortoise import Tortoise
@@ -46,24 +46,3 @@ async def migrate_user_roles_and_trust() -> None:
             high_trust_fixed,
             guest_users_promoted,
         )
-
-async def init_super_root() -> None:
-    """初始化超级管理员账户 (如果不存在)"""
-    from app.core.security import get_password_hash
-    from app.core.config import settings
-
-    # 检查是否已经有超级管理员
-    has_super_root = await User.filter(role=UserRole.SUPER_ROOT).exists()
-    if not has_super_root:
-        # 你可以把账号密码配置在 settings 里，或者写死一个默认的
-        default_admin = await User.create(
-            username="admin",
-            email="admin@admin.com",
-            hashed_password=get_password_hash("admin123456"),
-            role=UserRole.SUPER_ROOT,
-            trust_level=TrustLevel.CONTRIBUTOR, # 给予最高信用等级
-            nickname="System Admin",
-            is_active=True
-        )
-        logger.info(f"✨ 默认超级管理员创建成功! 账号: {default_admin.username} 密码: admin123456")
-

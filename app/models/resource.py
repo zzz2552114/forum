@@ -2,10 +2,6 @@ from tortoise import fields, models
 
 from app.models.enums import ContentStatus
 
-'''
-学习资源表 (resources)
-存储独立于帖子的学习资料、文件合集或文档。
-'''
 class Resource(models.Model):
     """ To handle attached files, documents, or course materials """
     id = fields.IntField(primary_key=True)
@@ -29,10 +25,6 @@ class Resource(models.Model):
     class Meta:
         table = "resources"
 
-'''
-资源版本控制表 (resource_versions)
-存储某个学习资源的具体版本文件记录（支持更新迭代）。
-'''
 class ResourceVersion(models.Model):
     id = fields.IntField(primary_key=True)
     resource = fields.ForeignKeyField("models.Resource", related_name="versions")
